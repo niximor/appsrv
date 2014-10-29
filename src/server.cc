@@ -24,42 +24,33 @@
 #include <gcm/socket/server.h>
 #include <gcm/logging/logging.h>
 
+#include "config.h"
+
 namespace s = gcm::socket;
 namespace l = gcm::logging;
 
 void client(s::ConnectedSocket<s::AnyIpAddress> &&client) {
-	std::string readed;
-	readed.reserve(1024);
-
 	
-
-	std::cout << "Client " << client.get_client_address().get_ip() << ":" << client.get_client_address().get_port() << " connected." << std::endl;
-
-	while (!client.eof()) {
-		client >> readed;
-
-		std::cout << "Received: '" << readed << "'" << std::endl;
-
-		client << readed;
-	}
-
-	std::cout << "Client disconnected." << std::endl;
 }
 
-int main(void) {
+void setup_logging() {
 	auto &log = l::getLogger("");
 	log.add_handler(l::StdErrHandler(l::Formatter(
 			l::field::Date(), " appsrv.", l::field::Name(), "[", l::field::Pid(), "] ", 
 			l::field::Severenity(), ": ", l::field::Message(), " {",
 			l::field::File(), ":", l::field::Line(), "}"
 	)));
+}
 
-	DEBUG(log) << "Test message";
+int main(void) {
+	setup_logging();
 
-	auto server = s::TcpServer{};
+	/*auto server = s::TcpServer{};
 	server.listen(s::Inet6{"::", 12345});
 	server.listen(s::Inet{"0.0.0.0", 12346});
 
-	server.serve_forever(client);
+	server.serve_forever(client);*/
+
+	Config cfg("\"123\"");
 }
 

@@ -635,7 +635,14 @@ public:
 		tm.tv_sec = timeout;
 		tm.tv_usec = usec_timeout;
 
-		if (::select(highest + 1, &rds, &wrs, &exs, &tm) < 0) {
+		int result;
+		if (timeout == 0 && usec_timeout == 0) {
+			result = ::select(highest + 1, &rds, &wrs, &exs, NULL);
+		} else {
+			result = ::select(highest + 1, &rds, &wrs, &exs, &tm);
+		}
+
+		if (result < 0) {
 			switch (errno) {
 				case EINTR:	throw Interrupt(errno);
 				default: throw SocketException(errno);

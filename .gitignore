@@ -30,5 +30,8 @@
 # Vim
 *.swp
 
+# Dependencies
+*.d
+
 # Binary
 gcm-srv
