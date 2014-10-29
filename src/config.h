@@ -40,10 +40,14 @@ public:
 
 private:
 	template<typename I>
+	void got_string(I begin, I end) {
+		std::cout << "Captured string: " << std::string(begin, end) << std::endl;
+	}
+
+	template<typename I>
 	void parse(I begin, I end) {
 		namespace r = gcm::parser::rule;
-		r::rule<I> digit = r::single<I>('0') | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
-		r::rule<I> str = '"' & r::many<I>(digit) & '"';
+		r::rule<I> str = ('"' & *(r::all<I>() - '"') & '"') >> std::bind(&Config::got_string<I>, this, std::placeholders::_1, std::placeholders::_2);
 
 		if (str(begin, end)) {
 			std::cout << "Success" << std::endl;

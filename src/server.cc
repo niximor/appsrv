@@ -30,7 +30,7 @@ namespace s = gcm::socket;
 namespace l = gcm::logging;
 
 void client(s::ConnectedSocket<s::AnyIpAddress> &&client) {
-	
+	(void)client;
 }
 
 void setup_logging() {
@@ -51,6 +51,6 @@ int main(void) {
 
 	server.serve_forever(client);*/
 
-	Config cfg("\"123\"");
+	Config cfg("\"ahoj!\"");
 }
 
