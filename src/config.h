@@ -27,7 +27,7 @@
 #include <fstream>
 #include <string>
 
-#include <gcm/parser/rules.h>
+#include <gcm/parser/parser.h>
 
 class Config {
 public:
@@ -45,11 +45,33 @@ private:
 	}
 
 	template<typename I>
-	void parse(I begin, I end) {
-		namespace r = gcm::parser::rule;
-		r::rule<I> str = ('"' & *(r::all<I>() - '"') & '"') >> std::bind(&Config::got_string<I>, this, std::placeholders::_1, std::placeholders::_2);
+	void debug(const std::string &desc, I begin, I end) {
+		std::cout << "Captured " << desc << ": " << std::string(begin, end) << std::endl;
+	}
 
-		if (str(begin, end)) {
+	template<typename I>
+	void parse(I begin, I end) {
+		using namespace std::placeholders;
+		using namespace gcm::parser;
+
+		gcm::parser::syntax<I> syntax;
+
+		auto space = *syntax.space;
+		auto identifier = (syntax.alpha & *syntax.alnum) >> std::bind(&Config::debug<I>, this, "identifier", _1, _2);
+		rule<I> value;
+		auto item = (identifier & space & '=' & space & value & space & ';') >> std::bind(&Config::debug<I>, this, "item", _1, _2);
+
+		auto v_string = ('"' & *(syntax.any - '"') & '"') >> std::bind(&Config::debug<I>, this, "v_string", _1, _2);
+		auto v_int = (-(syntax.ch('+') | '-') & +(syntax.digit)) >> std::bind(&Config::debug<I>, this, "v_int", _1, _2);
+		auto v_double = (-(syntax.ch('+') | '-') & ((+syntax.digit & -('.' & *syntax.digit)) | (*syntax.digit & '.' & +syntax.digit))) >> std::bind(&Config::debug<I>, this, "v_double", _1, _2);
+		auto v_array = ('[' & space & *value & space & ']') >> std::bind(&Config::debug<I>, this, "v_array", _1, _2);
+		auto v_struct = ('{' & space & *item & space & '}') >> std::bind(&Config::debug<I>, this, "v_struct", _1, _2);
+
+		value = (v_string | v_int | v_double | v_array | v_struct) >> std::bind(&Config::debug<I>, this, "value", _1, _2);
+
+		auto parser = (*item) >> std::bind(&Config::debug<I>, this, "parser", _1, _2);
+
+		if (parser(begin, end) && begin == end) {
 			std::cout << "Success" << std::endl;
 		} else {
 			std::cout << "Failed." << std::endl;

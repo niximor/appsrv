@@ -51,6 +51,6 @@ int main(void) {
 
 	server.serve_forever(client);*/
 
-	Config cfg("\"ahoj!\"");
+	Config cfg("test=\"ahoj!\";");
 }
 
