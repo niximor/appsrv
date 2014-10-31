@@ -131,7 +131,9 @@ public:
 
 private:
     Logger(): parent(*this), name("RootLogger")
-	{}
+	{
+		std::cout << "Created root logger." << std::endl;
+	}
 
     Logger(Logger &parent, const std::string &name): parent(parent), name(name)
 	{}
