@@ -24,14 +24,20 @@
 #pragma once
 
 #include "base.h"
-
-#include "composite.h"
-#include "composite_function.h"
-
-#include "terminal.h"
-#include "terminal_function.h"
-
 #include "extractor.h"
-#include "extractor_function.h"
 
-#include "generic.h"
+#include <utility>
+
+namespace gcm {
+namespace parser {
+
+template<typename Rule, typename Extractor>
+extractor_rule<
+    std::enable_if_t<is_rule<Rule>::value, Rule>,
+    Extractor
+> operator>>(Rule &&rule, Extractor &&extractor) {
+    return extractor_rule<Rule, Extractor>(std::forward<Rule>(rule), std::forward<Extractor>(extractor));
+}
+
+}
+}

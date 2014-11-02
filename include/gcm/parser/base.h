@@ -23,15 +23,33 @@
 
 #pragma once
 
-#include "base.h"
+//#define PARSER_DEBUG
 
-#include "composite.h"
-#include "composite_function.h"
+#include <type_traits>
 
-#include "terminal.h"
-#include "terminal_function.h"
+#ifdef PARSER_DEBUG
+#   include <gcm/logging/logging.h>
+#endif
 
-#include "extractor.h"
-#include "extractor_function.h"
+namespace gcm {
+namespace parser {
 
-#include "generic.h"
+class rule_base {
+public:
+#ifdef PARSER_DEBUG
+    rule_base(): log(gcm::logging::getLogger("GCM.Parser"))
+    {}
+
+    gcm::logging::Logger &log;
+#else
+    rule_base() {}
+#endif
+};
+
+template<typename T>
+struct is_rule {
+    static constexpr bool value = std::is_base_of<rule_base, typename std::remove_reference<T>::type>::value;
+};
+
+} // namespace parser
+} // namespace gcm

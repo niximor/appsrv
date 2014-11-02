@@ -51,6 +51,16 @@ int main(void) {
 
 	server.serve_forever(client);*/
 
-	Config cfg("test=\"ahoj!\";");
+	Config cfg(R"EOF(
+		test="ahoj!";
+		struct = {
+			a = "xyz";
+			b = 123;
+			c = 15.5;
+			d = true;
+			e = false;
+			f = null;
+		};
+		array = [ 1, 2, 3, 4 ];
+	)EOF");
 }
-

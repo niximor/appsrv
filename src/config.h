@@ -54,21 +54,28 @@ private:
 		using namespace std::placeholders;
 		using namespace gcm::parser;
 
-		auto space = *gcm::parser::space();
-		auto identifier = alpha() & *alnum(); //>> std::bind(&Config::debug<I>, this, "identifier", _1, _2);
+		auto line_comment = (char_rule('#') | "//") & many(any_rule() - '\n');
+		auto block_comment = "/*" & many(any_rule() - "*/") & "*/";
+		auto comment = line_comment | block_comment;
+
+		auto space = *(comment | gcm::parser::space());
+		auto identifier = (alpha() & many(alnum())) >> std::bind(&Config::debug<I>, this, "identifier", _1, _2);
 
 		rule<I> value;
-		auto item = (identifier & space & '=' & space & value & space & ';'); //>> std::bind(&Config::debug<I>, this, "item", _1, _2);
+		auto item = (identifier & space & '=' & space & value & space & ';') >> std::bind(&Config::debug<I>, this, "item", _1, _2);
 
-		auto v_string = '"' & *(any_rule() - '"') & '"'; //>> std::bind(&Config::debug<I>, this, "v_string", _1, _2);
-		auto v_int = (-(char_rule('+') | '-') & +digit()); //>> std::bind(&Config::debug<I>, this, "v_int", _1, _2);
-		auto v_double = (-(char_rule('+') | '-') & ((+digit() & -('.' & *digit())) | (*digit() & '.' & +digit()))); //>> std::bind(&Config::debug<I>, this, "v_double", _1, _2);
-		auto v_array = ('[' & space & *value & space & ']'); //>> std::bind(&Config::debug<I>, this, "v_array", _1, _2);
-		auto v_struct = ('{' & space & *item & space & '}'); //>> std::bind(&Config::debug<I>, this, "v_struct", _1, _2);
+		auto v_string = ('"' & many(any_rule() - '"') & '"') >> std::bind(&Config::debug<I>, this, "v_string", _1, _2);
+		auto v_int = (-(char_rule('+') | '-') & +digit()) >> std::bind(&Config::debug<I>, this, "v_int", _1, _2);
+		auto v_double = (-(char_rule('+') | '-') & ((+digit() & -('.' & many(digit()))) | (many(digit()) & '.' & +digit()))) >> std::bind(&Config::debug<I>, this, "v_double", _1, _2);
+		auto v_array = ('[' & space & many(value & ',' & space) & -(value) & space & ']') >> std::bind(&Config::debug<I>, this, "v_array", _1, _2);
+		auto v_struct = ('{' & space & many(item & space) & space & '}') >> std::bind(&Config::debug<I>, this, "v_struct", _1, _2);
 
-		value = (v_string | v_int | v_double | v_array | v_struct); //>> std::bind(&Config::debug<I>, this, "value", _1, _2);
+		auto v_bool = literal_rule("true") | "false";
+		auto v_null = literal_rule("null");
 
-		auto parser = (*item); //>> std::bind(&Config::debug<I>, this, "parser", _1, _2);
+		value = (v_string | v_double | v_int | v_array | v_struct | v_bool | v_null) >> std::bind(&Config::debug<I>, this, "value", _1, _2);
+
+		auto &&parser = space & many(item & space) >> std::bind(&Config::debug<I>, this, "parser", _1, _2);
 
 		if (parser(begin, end) && begin == end) {
 			std::cout << "Success" << std::endl;

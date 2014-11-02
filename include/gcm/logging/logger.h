@@ -64,7 +64,7 @@ public:
     }
 
     Message debug(const std::string &file = DefaultFileName, int line = DefaultLineNo) {
-        return std::move(msg(MessageType::Info, file, line));
+        return std::move(msg(MessageType::Debug, file, line));
     }
 
     static Logger &get_root() {
