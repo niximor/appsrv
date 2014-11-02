@@ -84,7 +84,13 @@ public:
     }
 
     operator std::string() const {
-        return std::string("'") + ch + "'";
+        if (ch < 0x20) {
+            std::stringstream ss;
+            ss << "'\\0x" << std::hex << (int)ch << "'";
+            return ss.str();
+        } else {
+            return std::string("'") + ch + "'";
+        }
     }
 
 protected:

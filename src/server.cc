@@ -23,11 +23,11 @@
 
 #include <gcm/socket/server.h>
 #include <gcm/logging/logging.h>
-
-#include "config.h"
+#include <gcm/config/config.h>
 
 namespace s = gcm::socket;
 namespace l = gcm::logging;
+namespace c = gcm::config;
 
 void client(s::ConnectedSocket<s::AnyIpAddress> &&client) {
 	(void)client;
@@ -51,16 +51,5 @@ int main(void) {
 
 	server.serve_forever(client);*/
 
-	Config cfg(R"EOF(
-		test="ahoj!";
-		struct = {
-			a = "xyz";
-			b = 123;
-			c = 15.5;
-			d = true;
-			e = false;
-			f = null;
-		};
-		array = [ 1, 2, 3, 4 ];
-	)EOF");
+	c::Config cfg("../conf/appsrv.conf");
 }
