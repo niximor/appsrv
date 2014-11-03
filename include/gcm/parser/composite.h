@@ -30,6 +30,11 @@
 namespace gcm {
 namespace parser {
 
+template<typename T>
+inline void print_type(const char *desc = "Func") {
+    std::cout << desc << " = " << __PRETTY_FUNCTION__ << std::endl;
+}
+
 template<typename Rule1, typename Rule2>
 class and_rule_t: public rule_base {
 public:

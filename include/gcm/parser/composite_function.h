@@ -56,9 +56,7 @@ auto operator-(Rule1 &&r1, Rule2 &&r2) {
     );
 }
 
-
-// FIXME: This does not work, it tries to cast rule to rule&.
-template<typename Rule, typename = std::enable_if_t<is_rule<Rule>::value>>
+template<typename Rule>
 auto operator*(Rule &&rule) {
     return iteration_rule(
         std::forward<Rule>(rule),

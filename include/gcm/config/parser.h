@@ -17,11 +17,6 @@ public:
     {}
 };
 
-template<typename T>
-void print_type() {
-    std::cout << "Func = " << __PRETTY_FUNCTION__ << std::endl;
-}
-
 class Parser {
 public:
     Parser(Value &val): current(&val) {}
@@ -31,8 +26,11 @@ public:
         using namespace std::placeholders;
         using namespace gcm::parser;
 
-        auto test = iteration_rule(alpha(), 0, 1);
-        print_type<decltype(test & alpha())>();
+        //auto test = iteration_rule(alpha(), 0, 1);
+        auto test = *alpha();
+        auto test2 = test | test;
+        //print_type<decltype(test2)>();
+        //print_type<decltype(test & alpha())>();
         //auto test2 = alpha() & test;
 
 //        rule<I> value;
