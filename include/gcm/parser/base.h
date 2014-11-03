@@ -47,9 +47,8 @@ public:
 };
 
 template<typename T>
-struct is_rule {
-    static constexpr bool value = std::is_base_of<rule_base, typename std::remove_reference<T>::type>::value;
-};
+struct is_rule: std::integral_constant<bool, std::is_base_of<rule_base, std::decay_t<T>>::value>
+{};
 
 } // namespace parser
 } // namespace gcm

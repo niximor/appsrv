@@ -31,9 +31,10 @@ namespace gcm {
 namespace parser {
 
 template<typename Rule1, typename Rule2>
-class and_rule: public rule_base {
+class and_rule_t: public rule_base {
 public:
-    and_rule(Rule1 &&r1, Rule2 &&r2): rule_base(), r1(std::forward<Rule1>(r1)), r2(std::forward<Rule2>(r2))
+    template<typename R1, typename R2>
+    and_rule_t(R1 &&r1, R2 &&r2): rule_base(), r1(std::forward<R1>(r1)), r2(std::forward<R2>(r2))
     {}
 
     template<typename I>
@@ -54,9 +55,10 @@ protected:
 };
 
 template<typename Rule1, typename Rule2>
-class or_rule: public rule_base {
+class or_rule_t: public rule_base {
 public:
-    or_rule(Rule1 &&r1, Rule2 &&r2): rule_base(), r1(std::forward<Rule1>(r1)), r2(std::forward<Rule2>(r2))
+    template<typename R1, typename R2>
+    or_rule_t(R1 &&r1, R2 &&r2): rule_base(), r1(std::forward<R1>(r1)), r2(std::forward<R2>(r2))
     {}
 
     template<typename I>
@@ -78,9 +80,10 @@ protected:
 };
 
 template<typename Rule1, typename Rule2>
-class exception_rule: public rule_base {
+class exception_rule_t: public rule_base {
 public:
-    exception_rule(Rule1 &&r1, Rule2 &&r2): rule_base(), r1(std::forward<Rule1>(r1)), r2(std::forward<Rule2>(r2))
+    template<typename R1, typename R2>
+    exception_rule_t(R1 &&r1, R2 &&r2): rule_base(), r1(std::forward<R1>(r1)), r2(std::forward<R2>(r2))
     {}
 
     template<typename I>
@@ -109,10 +112,11 @@ protected:
     Rule2 r2;
 };
 
-template<typename Rule, int Min=0, int Max=-1>
-class iteration_rule: public rule_base {
+template<typename Rule>
+class iteration_rule_t: public rule_base {
 public:
-    iteration_rule(Rule &&rule): rule_base(), rule(std::forward<Rule>(rule))
+    template<typename R>
+    iteration_rule_t(R &&rule, int min = 0, int max = -1): rule_base(), rule(std::forward<R>(rule)), min(min), max(max)
     {}
 
     template<typename I>
@@ -125,8 +129,8 @@ public:
 
         I begin1 = begin;
 
-        if (Max >= 0) {
-            while (count < Max && rule(begin1, end)) {
+        if (max >= 0) {
+            while (count < max && rule(begin1, end)) {
                 ++count;
             }
         } else {
@@ -135,7 +139,7 @@ public:
             }
         }
 
-        if (count >= Min) {
+        if (count >= min) {
             begin = begin1;
             return true;
         }
@@ -149,6 +153,8 @@ public:
 
 protected:
     Rule rule;
+    int min;
+    int max;
 };
 
 } // namespace parser

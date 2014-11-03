@@ -27,6 +27,7 @@
 
 #include "composite.h"
 #include "composite_function.h"
+#include "composite_builder.h"
 
 #include "terminal.h"
 #include "terminal_function.h"

@@ -31,12 +31,13 @@ namespace gcm {
 namespace parser {
 
 template<typename Rule, typename Extractor>
-class extractor_rule: public rule_base {
+class extractor_rule_t: public rule_base {
 public:
-    extractor_rule(Rule &&rule, Extractor &&extractor):
+    template<typename R, typename E>
+    extractor_rule_t(R &&rule, E &&extractor):
         rule_base(),
-        rule(std::forward<Rule>(rule)),
-        extractor(std::forward<Extractor>(extractor))
+        rule(std::forward<R>(rule)),
+        extractor(std::forward<E>(extractor))
     {}
 
     template<typename I>
@@ -63,6 +64,14 @@ protected:
     Rule rule;
     Extractor extractor;
 };
+
+template<typename Rule, typename Extractor, typename = std::enable_if_t<is_rule<Rule>::value>>
+inline auto extractor_rule(Rule &&rule, Extractor &&extractor) {
+    return extractor_rule_t<std::decay_t<Rule>, std::decay_t<Extractor>>(
+        std::forward<Rule>(rule),
+        std::forward<Extractor>(extractor)
+    );
+}
 
 } // namespace parser
 } // namespace gcm

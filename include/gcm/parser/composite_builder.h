@@ -23,65 +23,41 @@
 
 #pragma once
 
-#include "base.h"
 #include "composite.h"
-#include "composite_builder.h"
-
-#include <utility>
 
 namespace gcm {
 namespace parser {
 
-template<typename Rule1, typename Rule2>
-auto operator|(Rule1 &&r1, Rule2 &&r2) {
-    return or_rule(
+template<typename Rule1, typename Rule2, typename = std::enable_if_t<is_rule<Rule1>::value>, typename = std::enable_if_t<is_rule<Rule2>::value>>
+inline auto and_rule(Rule1 &&r1, Rule2 &&r2) {
+    return and_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>(
         std::forward<Rule1>(r1),
         std::forward<Rule2>(r2)
     );
 }
 
-template<typename Rule1, typename Rule2>
-auto operator&(Rule1 &&r1, Rule2 &&r2) {
-    return and_rule(
+template<typename Rule1, typename Rule2, typename = std::enable_if_t<is_rule<Rule1>::value>, typename = std::enable_if_t<is_rule<Rule2>::value>>
+inline auto or_rule(Rule1 &&r1, Rule2 &&r2) {
+    return or_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>(
         std::forward<Rule1>(r1),
         std::forward<Rule2>(r2)
     );
 }
 
-template<typename Rule1, typename Rule2>
-auto operator-(Rule1 &&r1, Rule2 &&r2) {
-    return exception_rule(
+template<typename Rule1, typename Rule2, typename = std::enable_if_t<is_rule<Rule1>::value>, typename = std::enable_if_t<is_rule<Rule2>::value>>
+inline auto exception_rule(Rule1 &&r1, Rule2 &&r2) {
+    return exception_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>(
         std::forward<Rule1>(r1),
         std::forward<Rule2>(r2)
     );
 }
 
-
-// FIXME: This does not work, it tries to cast rule to rule&.
 template<typename Rule, typename = std::enable_if_t<is_rule<Rule>::value>>
-auto operator*(Rule &&rule) {
-    return iteration_rule(
-        std::forward<Rule>(rule),
-        0,
-        -1
-    );
-}
-
-template<typename Rule>
-auto operator+(Rule &&rule) {
-    return iteration_rule(
-        std::forward<Rule>(rule),
-        1,
-        -1
-    );
-}
-
-template<typename Rule>
-auto operator-(Rule &&rule) {
-    return iteration_rule(
-        std::forward<Rule>(rule),
-        0,
-        1
+inline auto iteration_rule(Rule &&r, int min = 0, int max = -1) {
+    return iteration_rule_t<std::decay_t<Rule>>(
+        std::forward<Rule>(r),
+        min,
+        max
     );
 }
 
