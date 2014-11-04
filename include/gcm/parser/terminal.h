@@ -57,6 +57,9 @@ public:
     char_rule(const char ch): rule_base(), ch(ch)
     {}
 
+    char_rule(const char_rule &) = default;
+    char_rule(char_rule &&) = default;
+
     template<typename I>
     bool operator()(I &begin, I &end) const {
 #ifdef PARSER_DEBUG
@@ -139,6 +142,9 @@ public:
 
     literal_rule(std::string &&lit): rule_base(), lit(std::move(lit))
     {}
+
+    literal_rule(const literal_rule &) = default;
+    literal_rule(literal_rule &&) = default;
 
     template<typename I>
     bool operator()(I &begin, I&end) const {

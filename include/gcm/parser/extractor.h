@@ -40,6 +40,20 @@ public:
         extractor(std::forward<E>(extractor))
     {}
 
+    template<typename R, typename E>
+    extractor_rule_t(extractor_rule_t<R, E> &&other):
+        rule_base(std::forward<rule_base>(other)),
+        rule(std::forward<R>(other.rule)),
+        extractor(std::forward<E>(other.extractor))
+    {}
+
+    template<typename R, typename E>
+    extractor_rule_t(const extractor_rule_t<R, E> &other):
+        rule_base(other),
+        rule(other.rule),
+        extractor(other.extractor)
+    {}
+
     template<typename I>
     bool operator()(I &begin, I &end) const {
 #ifdef PARSER_DEBUG
@@ -65,13 +79,55 @@ protected:
     Extractor extractor;
 };
 
-template<typename Rule, typename Extractor, typename = std::enable_if_t<is_rule<Rule>::value>>
-inline auto extractor_rule(Rule &&rule, Extractor &&extractor) {
-    return extractor_rule_t<std::decay_t<Rule>, std::decay_t<Extractor>>(
-        std::forward<Rule>(rule),
-        std::forward<Extractor>(extractor)
-    );
-}
+template<typename Rule, typename Error>
+class error_rule_t: public rule_base {
+public:
+    template<typename R, typename E>
+    error_rule_t(R &&rule, E &&error):
+        rule_base(),
+        rule(std::forward<R>(rule)),
+        error(std::forward<E>(error))
+    {}
+
+    template<typename R, typename E>
+    error_rule_t(error_rule_t<R, E> &&other):
+        rule_base(std::forward<rule_base>(other)),
+        rule(std::forward<R>(other.rule)),
+        error(std::forward<E>(other.error))
+    {}
+
+    template<typename R, typename E>
+    error_rule_t(const error_rule_t<R, E> &other):
+        rule_base(other),
+        rule(other.rule),
+        error(other.error)
+    {}
+
+    template<typename I>
+    bool operator()(I &begin, I &end) const {
+#ifdef PARSER_DEBUG
+        DEBUG(this->log) << "Calling " << (std::string)*this << " on " << std::string(begin, end);
+#endif
+
+        I begin1 = begin;
+        if (rule(begin1, end)) {
+            begin = begin1;
+            return true;
+        } else {
+            error(begin);
+        }
+
+        return false;
+    }
+
+    operator std::string() const {
+        return "(" + (std::string)rule + ") ~ error";
+    }
+
+protected:
+    Rule rule;
+    Error error;
+};
 
 } // namespace parser
 } // namespace gcm

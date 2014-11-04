@@ -39,7 +39,21 @@ template<typename Rule1, typename Rule2>
 class and_rule_t: public rule_base {
 public:
     template<typename R1, typename R2>
-    and_rule_t(R1 &&r1, R2 &&r2): rule_base(), r1(std::forward<R1>(r1)), r2(std::forward<R2>(r2))
+    and_rule_t(R1 &&rule1, R2 &&rule2): rule_base(), r1(std::forward<R1>(rule1)), r2(std::forward<R2>(rule2))
+    {}
+
+    template<typename R1, typename R2>
+    and_rule_t(and_rule_t<R1, R2> &&other):
+        rule_base(std::forward<rule_base>(other)),
+        r1(std::forward<R1>(other.r1)),
+        r2(std::forward<R2>(other.r2))
+    {}
+
+    template<typename R1, typename R2>
+    and_rule_t(const and_rule_t<R1, R2> &other):
+        rule_base(other), 
+        r1(other.r1),
+        r2(other.r2)
     {}
 
     template<typename I>
@@ -63,7 +77,21 @@ template<typename Rule1, typename Rule2>
 class or_rule_t: public rule_base {
 public:
     template<typename R1, typename R2>
-    or_rule_t(R1 &&r1, R2 &&r2): rule_base(), r1(std::forward<R1>(r1)), r2(std::forward<R2>(r2))
+    or_rule_t(R1 &&rule1, R2 &&rule2): rule_base(), r1(std::forward<R1>(rule1)), r2(std::forward<R2>(rule2))
+    {}
+
+    template<typename R1, typename R2>
+    or_rule_t(or_rule_t<R1, R2> &&other):
+        rule_base(std::forward<rule_base>(other)),
+        r1(std::forward<R1>(other.r1)),
+        r2(std::forward<R2>(other.r2))
+    {}
+
+    template<typename R1, typename R2>
+    or_rule_t(const or_rule_t<R1, R2> &other):
+        rule_base(other), 
+        r1(other.r1),
+        r2(other.r2)
     {}
 
     template<typename I>
@@ -88,7 +116,21 @@ template<typename Rule1, typename Rule2>
 class exception_rule_t: public rule_base {
 public:
     template<typename R1, typename R2>
-    exception_rule_t(R1 &&r1, R2 &&r2): rule_base(), r1(std::forward<R1>(r1)), r2(std::forward<R2>(r2))
+    exception_rule_t(R1 &&rule1, R2 &&rule2): rule_base(), r1(std::forward<R1>(rule1)), r2(std::forward<R2>(rule2))
+    {}
+
+    template<typename R1, typename R2>
+    exception_rule_t(exception_rule_t<R1, R2> &&other):
+        rule_base(std::forward<rule_base>(other)),
+        r1(std::forward<R1>(other.r1)),
+        r2(std::forward<R2>(other.r2))
+    {}
+
+    template<typename R1, typename R2>
+    exception_rule_t(const exception_rule_t<R1, R2> &other):
+        rule_base(other), 
+        r1(other.r1),
+        r2(other.r2)
     {}
 
     template<typename I>
@@ -121,7 +163,23 @@ template<typename Rule>
 class iteration_rule_t: public rule_base {
 public:
     template<typename R>
-    iteration_rule_t(R &&rule, int min = 0, int max = -1): rule_base(), rule(std::forward<R>(rule)), min(min), max(max)
+    iteration_rule_t(R &&r, int min, int max): rule_base(), rule(std::forward<R>(r)), min(min), max(max)
+    {}
+
+    template<typename R>
+    iteration_rule_t(iteration_rule_t<R> &&other):
+        rule_base(std::forward<rule_base>(other)),
+        rule(std::forward<R>(other.rule)),
+        min(other.min),
+        max(other.max)
+    {}
+
+    template<typename R>
+    iteration_rule_t(const iteration_rule_t<R> &other):
+        rule_base(other), 
+        rule(other.rule),
+        min(other.min),
+        max(other.max)
     {}
 
     template<typename I>

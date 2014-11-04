@@ -32,10 +32,20 @@ namespace gcm {
 namespace parser {
 
 template<typename Rule, typename Extractor>
-auto operator>>(Rule &&rule, Extractor &&extractor) {
+std::enable_if_t<is_rule<Rule>::value, extractor_rule_t<std::decay_t<Rule>, std::decay_t<Extractor>>>
+operator>>(Rule &&rule, Extractor &&extractor) {
     return extractor_rule(
         std::forward<Rule>(rule),
         std::forward<Extractor>(extractor)
+    );
+}
+
+template<typename Rule, typename Error>
+std::enable_if_t<is_rule<Rule>::value, error_rule_t<std::decay_t<Rule>, std::decay_t<Error>>>
+operator/(Rule &&rule, Error &&error) {
+    return error_rule(
+        std::forward<Rule>(rule),
+        std::forward<Error>(error)
     );
 }
 

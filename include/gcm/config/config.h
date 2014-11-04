@@ -6,17 +6,23 @@
 #include "value.h"
 #include "parser.h"
 
+#include <gcm/logging/logging.h>
+
 namespace gcm {
 namespace config {
 
 class Config {
 public:
-    Config(const std::string &file): val(Value::StructType()) {
+    Config(const std::string &file): val(Value::StructType()), log(gcm::logging::getLogger("GCM.ConfigParser")) {
         std::ifstream f(file, std::ios_base::in);
         std::string contents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 
         Parser p(val);
-        p.parse(contents.begin(), contents.end());
+        try {
+            p.parse(contents.begin(), contents.end());
+        } catch (parse_error &e) {
+            ERROR(log) << file << " " << e.what();
+        }
     }
 
     Value &operator[](const std::string &index) {
@@ -40,6 +46,7 @@ public:
 
 private:
     Value val;
+    gcm::logging::Logger &log;
 };
 
 }

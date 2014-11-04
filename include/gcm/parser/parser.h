@@ -33,6 +33,7 @@
 #include "terminal_function.h"
 
 #include "extractor.h"
+#include "extractor_builder.h"
 #include "extractor_function.h"
 
 #include "generic.h"

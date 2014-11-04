@@ -45,7 +45,7 @@ inline auto operator "" _r(const char lit[], size_t len) {
     return literal_rule(std::forward<std::string>({lit, len}));
 }
 
-/*
+
 template<typename Rule1>
 inline auto operator|(Rule1 &&r1, const char ch) {
     return or_rule(std::forward<Rule1>(r1), char_rule(ch));
@@ -61,9 +61,19 @@ inline auto operator|(Rule1 &&r1, std::string &&lit) {
     return or_rule(std::forward<Rule1>(r1), literal_rule(std::forward<std::string>(lit)));
 }
 
+template<typename Rule1>
+inline auto operator|(Rule1 &&r1, const char *lit) {
+    return or_rule(std::forward<Rule1>(r1), literal_rule(lit));
+}
+
 template<typename Rule2>
 inline auto operator|(std::string &&lit, Rule2 &&r2) {
     return or_rule(literal_rule(std::forward<std::string>(lit)), std::forward<Rule2>(r2));
+}
+
+template<typename Rule2>
+inline auto operator|(const char *lit, Rule2 &&r2) {
+    return or_rule(literal_rule(lit), std::forward<Rule2>(r2));
 }
 
 template<typename Rule1>
@@ -81,9 +91,19 @@ inline auto operator&(Rule1 &&r1, std::string &&lit) {
     return and_rule(std::forward<Rule1>(r1), literal_rule(std::forward<std::string>(lit)));
 }
 
+template<typename Rule1>
+inline auto operator&(Rule1 &&r1, const char *lit) {
+    return and_rule(std::forward<Rule1>(r1), literal_rule(lit));
+}
+
 template<typename Rule2>
 inline auto operator&(std::string &&lit, Rule2 &&r2) {
     return and_rule(literal_rule(std::forward<std::string>(lit)), std::forward<Rule2>(r2));
+}
+
+template<typename Rule2>
+inline auto operator&(const char *lit, Rule2 &&r2) {
+    return and_rule(literal_rule(lit), std::forward<Rule2>(r2));
 }
 
 template<typename Rule1>
@@ -101,11 +121,20 @@ inline auto operator-(Rule1 &&r1, std::string &&lit) {
     return exception_rule(std::forward<Rule1>(r1), literal_rule(std::forward<std::string>(lit)));
 }
 
+template<typename Rule1>
+inline auto operator-(Rule1 &&r1, const char *lit) {
+    return exception_rule(std::forward<Rule1>(r1), literal_rule(lit));
+}
+
 template<typename Rule2>
 inline auto operator-(std::string &&lit, Rule2 &&r2) {
     return exception_rule(literal_rule(std::forward<std::string>(lit)), std::forward<Rule2>(r2));
 }
-*/
+
+template<typename Rule2>
+inline auto operator-(const char *lit, Rule2 &&r2) {
+    return exception_rule(lit, std::forward<Rule2>(r2));
+}
 
 } // namespace parser
 } // namespace gcm

@@ -50,5 +50,23 @@ template<typename T>
 struct is_rule: std::integral_constant<bool, std::is_base_of<rule_base, std::decay_t<T>>::value>
 {};
 
+using ParserPosition = std::pair<size_t, size_t>;
+
+template<typename I>
+auto calc_line_column(I begin, I end) {
+    ParserPosition result{1, 1};
+
+    for (; begin != end; ++begin) {
+        if (*begin == '\n') {
+            ++result.first;
+            result.second = 1;
+        } else {
+            ++result.second;
+        }
+    }
+
+    return result;
+}
+
 } // namespace parser
 } // namespace gcm

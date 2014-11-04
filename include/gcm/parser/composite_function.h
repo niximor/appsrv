@@ -33,15 +33,8 @@ namespace gcm {
 namespace parser {
 
 template<typename Rule1, typename Rule2>
-auto operator|(Rule1 &&r1, Rule2 &&r2) {
-    return or_rule(
-        std::forward<Rule1>(r1),
-        std::forward<Rule2>(r2)
-    );
-}
-
-template<typename Rule1, typename Rule2>
-auto operator&(Rule1 &&r1, Rule2 &&r2) {
+std::enable_if_t<is_rule<Rule1>::value && is_rule<Rule2>::value, and_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>>
+operator&(Rule1 &&r1, Rule2 &&r2) {
     return and_rule(
         std::forward<Rule1>(r1),
         std::forward<Rule2>(r2)
@@ -49,7 +42,17 @@ auto operator&(Rule1 &&r1, Rule2 &&r2) {
 }
 
 template<typename Rule1, typename Rule2>
-auto operator-(Rule1 &&r1, Rule2 &&r2) {
+std::enable_if_t<is_rule<Rule1>::value && is_rule<Rule2>::value, or_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>>
+operator|(Rule1 &&r1, Rule2 &&r2) {
+    return or_rule(
+        std::forward<Rule1>(r1),
+        std::forward<Rule2>(r2)
+    );
+}
+
+template<typename Rule1, typename Rule2>
+std::enable_if_t<is_rule<Rule1>::value && is_rule<Rule2>::value, exception_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>>
+operator-(Rule1 &&r1, Rule2 &&r2) {
     return exception_rule(
         std::forward<Rule1>(r1),
         std::forward<Rule2>(r2)
@@ -57,7 +60,8 @@ auto operator-(Rule1 &&r1, Rule2 &&r2) {
 }
 
 template<typename Rule>
-auto operator*(Rule &&rule) {
+std::enable_if_t<is_rule<Rule>::value, iteration_rule_t<std::decay_t<Rule>>>
+operator*(Rule &&rule) {
     return iteration_rule(
         std::forward<Rule>(rule),
         0,
@@ -66,7 +70,8 @@ auto operator*(Rule &&rule) {
 }
 
 template<typename Rule>
-auto operator+(Rule &&rule) {
+std::enable_if_t<is_rule<Rule>::value, iteration_rule_t<std::decay_t<Rule>>>
+operator+(Rule &&rule) {
     return iteration_rule(
         std::forward<Rule>(rule),
         1,
@@ -75,7 +80,8 @@ auto operator+(Rule &&rule) {
 }
 
 template<typename Rule>
-auto operator-(Rule &&rule) {
+iteration_rule_t<std::decay_t<Rule>> 
+operator-(Rule &&rule) {
     return iteration_rule(
         std::forward<Rule>(rule),
         0,

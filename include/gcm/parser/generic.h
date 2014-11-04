@@ -42,17 +42,30 @@ public:
     rule(std::enable_if_t<is_rule<Rule>::value, Rule &&> r): rule_base(), func(std::forward<Rule>(r))
     {}
 
+    rule(rule &&) = default;
+    rule(const rule &) = delete;
+
     // Assignment operator
-    rule<I> &operator=(const rule<I> &) = default;
+    rule<I> &operator=(const rule<I> &other) {
+        func = other.func;
+        return *this;
+    }
+
+    rule<I> &operator=(rule<I> &&other) {
+        func = std::move(other.func);
+        return *this;
+    }
 
     template<typename Rule>
-    rule<I> &operator=(Rule && r) {
+    std::enable_if_t<is_rule<Rule>::value, rule<I> &>
+    operator=(Rule && r) {
         func = std::forward<Rule>(r);
         return *this;
     }
 
     template<typename Rule>
-    rule<I> &operator=(const Rule & r) {
+    std::enable_if_t<is_rule<Rule>::value, rule<I> &>
+    operator=(const Rule & r) {
         func = r;
         return *this;
     }
@@ -66,6 +79,9 @@ public:
         if (func != nullptr) {
             return func(begin, end);
         } else {
+#ifdef PARSER_DEBUG
+        DEBUG(this->log) << "Empty " << (std::string)*this;
+#endif
             return true;
         }
     }

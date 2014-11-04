@@ -13,7 +13,24 @@ namespace config {
 
 class parse_error: public std::runtime_error {
 public:
-    parse_error(const std::string &what): std::runtime_error(what)
+    parse_error(const std::string &what):
+        std::runtime_error(what)
+    {}
+
+    parse_error(const gcm::parser::ParserPosition &pos, const std::string &what):
+        std::runtime_error([](const gcm::parser::ParserPosition &pos, const std::string &what) {
+            std::stringstream ss;
+            ss << "on line " << pos.first << ", column " << pos.second << ": " << what;
+            return ss.str();
+        }(pos, what))
+    {}
+
+    parse_error(const gcm::parser::ParserPosition &pos, const char *what):
+        std::runtime_error([](const gcm::parser::ParserPosition &pos, const char *what) {
+            std::stringstream ss;
+            ss << "on line " << pos.first << ", column " << pos.second << ": " << what;
+            return ss.str();
+        }(pos, what))
     {}
 };
 
@@ -26,65 +43,70 @@ public:
         using namespace std::placeholders;
         using namespace gcm::parser;
 
-        //auto test = iteration_rule(alpha(), 0, 1);
-        auto test = *alpha();
-        auto test2 = test | test;
-        //print_type<decltype(test2)>();
-        //print_type<decltype(test & alpha())>();
-        //auto test2 = alpha() & test;
+        rule<I> value;
 
-//        rule<I> value;
-//
-//        auto v_string = '"'_r & *(any_rule() - '"'_r) & '"'_r;
-//        auto v_int = -('+'_r | '-'_r) & +digit();
-//        auto v_double = -('+'_r | '-'_r) & ((+digit() & -('.'_r & *digit())) | (*digit() & '.'_r & +digit()));
-//        auto v_bool = "true"_r >> std::bind(&Parser::true_value<I>, this, _1, _2) | "false"_r >> std::bind(&Parser::false_value<I>, this, _1, _2);
-//        auto v_null = "null"_r >> std::bind(&Parser::null_value<I>, this, _1, _2);
-//
-//        auto line_comment = ('#'_r | "//"_r) & *(any_rule() - '\n'_r);
-//        auto block_comment = "/*"_r & *(any_rule() - "*/"_r) & "*/"_r;
-//        auto comment = line_comment | block_comment;
-//
-//        auto include_cmd = "include"_r & *gcm::parser::space() & (v_string >> std::bind(&Parser::include_file<I>, this, _1, _2)) & *(gcm::parser::space() - '\n'_r) & '\n'_r;
-//        auto preprocessor = '%'_r & include_cmd;
-//        //auto space = *(preprocessor | comment | gcm::parser::space());
-//        auto identifier = (alpha() & *alnum()) >> std::bind(&Parser::identifier<I>, this, _1, _2);
-//
-//        auto item = identifier & space & '='_r & space & value & space & ';'_r;
-//
-//        auto v_array = '['_r >> std::bind(&Parser::array_begin<I>, this, _1, _2)
-//            & space
-//            & *(value & ','_r & space)
-//            & -(value)
-//            & space
-//            & ']'_r >> std::bind(&Parser::array_end<I>, this, _1, _2);
-//
-//        auto v_struct = '{'_r >> std::bind(&Parser::struct_begin<I>, this, _1, _2)
-//            & space
-//            & *(item & space)
-//            & space
-//            & '}'_r >> std::bind(&Parser::struct_end<I>, this, _1, _2);
-//
-//        value =
-//              v_string >> std::bind(&Parser::value_string<I>, this, _1, _2)
-//            | v_double >> std::bind(&Parser::value_double<I>, this, _1, _2)
-//            | v_int >> std::bind(&Parser::value_int<I>, this, _1, _2)
-//            | v_array 
-//            | v_struct 
-//            | v_bool 
-//            | v_null;
-//
-//        auto parser = space & *(item & space);
-//
-//        if (parser(begin, end) && begin == end) {
-//            std::cout << "Success" << std::endl;
-//        } else {
-//            throw parse_error("Parse error while reading config file.");
-//        }
+        auto v_string = '"' & *(any_rule() - '"') & '"';
+        auto v_int = -('+'_r | '-'_r) & +digit();
+        auto v_double = -('+'_r | '-'_r) & ((+digit() & -('.' & *digit())) | (*digit() & '.' & +digit()));
+        auto v_bool = "true"_r >> std::bind(&Parser::true_value<I>, this, _1, _2) | "false"_r >> std::bind(&Parser::false_value<I>, this, _1, _2);
+        auto v_null = "null"_r >> std::bind(&Parser::null_value<I>, this, _1, _2);
+
+        auto line_comment = ('#'_r | "//"_r) & *(any_rule() - '\n');
+        auto block_comment = "/*" & *(any_rule() - "*/") & "*/";
+        auto comment = line_comment | block_comment;
+
+        auto include_cmd = "include" & *gcm::parser::space() & (v_string >> std::bind(&Parser::include_file<I>, this, _1, _2)) & *(gcm::parser::space() - '\n') & '\n';
+        auto preprocessor = '%' & include_cmd;
+        auto space = *(preprocessor | comment | gcm::parser::space());
+        auto identifier = (alpha() & *alnum()) >> std::bind(&Parser::identifier<I>, this, _1, _2);
+
+        auto item =
+            (identifier / std::bind(&Parser::error<I>, this, "Required identifier.", begin, _1))
+            & space & '=' & space
+            & (value / std::bind(&Parser::error<I>, this, "Required value.", begin, _1))
+            & space & (';'_r / std::bind(&Parser::error<I>, this, "Required ;.", begin, _1));
+
+        auto v_array = '['_r >> std::bind(&Parser::array_begin<I>, this, _1, _2)
+            & space
+            & *(value & ','_r & space)
+            & -(value)
+            & space
+            & ']'_r >> std::bind(&Parser::array_end<I>, this, _1, _2);
+
+        auto v_struct = '{'_r >> std::bind(&Parser::struct_begin<I>, this, _1, _2)
+            & space
+            & *(item & space)
+            & space
+            & '}'_r >> std::bind(&Parser::struct_end<I>, this, _1, _2);
+
+        // TODO: Rule is copied, so this is discarded.
+        value =
+              (v_string >> std::bind(&Parser::value_string<I>, this, _1, _2)
+            | v_double >> std::bind(&Parser::value_double<I>, this, _1, _2)
+            | v_int >> std::bind(&Parser::value_int<I>, this, _1, _2)
+            | v_array 
+            | v_struct 
+            | v_bool 
+            | v_null);
+
+        auto parser = space & *(item & space);
+
+        I orig_begin = begin;
+        if (parser(begin, end) && begin == end) {
+            std::cout << "Success" << std::endl;
+        } else {
+            auto pos = calc_line_column(orig_begin, begin);
+            throw parse_error(pos, "Parse error while reading config file.");
+        }
     }
 
 protected:
     Value *current;
+
+    template<typename I>
+    void error(const std::string &desc, I begin, I end) {
+        throw parse_error(gcm::parser::calc_line_column(begin, end), desc);
+    }
 
     template<typename I>
     void identifier(I begin, I end) {

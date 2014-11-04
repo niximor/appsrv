@@ -28,32 +28,36 @@
 namespace gcm {
 namespace parser {
 
-template<typename Rule1, typename Rule2, typename = std::enable_if_t<is_rule<Rule1>::value>, typename = std::enable_if_t<is_rule<Rule2>::value>>
-inline auto and_rule(Rule1 &&r1, Rule2 &&r2) {
+template<typename Rule1, typename Rule2>
+inline std::enable_if_t<is_rule<Rule1>::value && is_rule<Rule2>::value, and_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>>
+and_rule(Rule1 &&r1, Rule2 &&r2) {
     return and_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>(
         std::forward<Rule1>(r1),
         std::forward<Rule2>(r2)
     );
 }
 
-template<typename Rule1, typename Rule2, typename = std::enable_if_t<is_rule<Rule1>::value>, typename = std::enable_if_t<is_rule<Rule2>::value>>
-inline auto or_rule(Rule1 &&r1, Rule2 &&r2) {
+template<typename Rule1, typename Rule2>
+inline std::enable_if_t<is_rule<Rule1>::value && is_rule<Rule2>::value, or_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>>
+or_rule(Rule1 &&r1, Rule2 &&r2) {
     return or_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>(
         std::forward<Rule1>(r1),
         std::forward<Rule2>(r2)
     );
 }
 
-template<typename Rule1, typename Rule2, typename = std::enable_if_t<is_rule<Rule1>::value>, typename = std::enable_if_t<is_rule<Rule2>::value>>
-inline auto exception_rule(Rule1 &&r1, Rule2 &&r2) {
+template<typename Rule1, typename Rule2>
+inline std::enable_if_t<is_rule<Rule1>::value && is_rule<Rule2>::value, exception_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>>
+exception_rule(Rule1 &&r1, Rule2 &&r2) {
     return exception_rule_t<std::decay_t<Rule1>, std::decay_t<Rule2>>(
         std::forward<Rule1>(r1),
         std::forward<Rule2>(r2)
     );
 }
 
-template<typename Rule, typename = std::enable_if_t<is_rule<Rule>::value>>
-inline auto iteration_rule(Rule &&r, int min = 0, int max = -1) {
+template<typename Rule>
+inline std::enable_if_t<is_rule<Rule>::value, iteration_rule_t<std::decay_t<Rule>>>
+iteration_rule(Rule &&r, int min = 0, int max = -1) {
     return iteration_rule_t<std::decay_t<Rule>>(
         std::forward<Rule>(r),
         min,
