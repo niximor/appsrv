@@ -64,6 +64,41 @@ public:
     }
 };
 
+class null_match_rule: public rule_base {
+public:
+    template<typename I>
+    bool operator()(I &, I&) const {
+        return true;
+    }
+
+    operator std::string() const {
+        return "null_match";
+    }
+};
+
+class lookahead_rule: public rule_base {
+public:
+    template<typename... Args>
+    lookahead_rule(Args... params): lookahead(params...)
+    {}
+
+    lookahead_rule(char ch): lookahead(1, ch)
+    {}
+
+    template<typename I>
+    bool operator()(I &begin, I &end) const {
+        if (begin + lookahead.size() < end) {
+            if (std::string(begin, begin + lookahead.size()) == lookahead) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+protected:
+    std::string lookahead;
+};
+
 class char_rule: public rule_base {
 public:
     char_rule(const char ch): rule_base(), ch(ch)

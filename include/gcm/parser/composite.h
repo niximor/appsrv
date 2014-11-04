@@ -220,5 +220,38 @@ protected:
     int max;
 };
 
+template<class Rule>
+class not_rule_t: public rule_base {
+public:
+    template<typename R>
+    not_rule_t(R &&r): rule(std::forward<R>(r))
+    {}
+
+    template<typename R>
+    not_rule_t(const not_rule_t<R> &other): rule(other.rule)
+    {}
+
+    template<typename R>
+    not_rule_t(not_rule_t<R> &&other): rule(std::forward<R>(other.rule))
+    {}
+
+    template<typename I>
+    bool operator()(I &begin, I &end) const {
+        I begin1 = begin;
+        if (!rule(begin1, end)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    operator std::string() const {
+        return "!(" + (std::string)rule + ")";
+    }
+
+protected:
+    Rule rule;
+};
+
 } // namespace parser
 } // namespace gcm

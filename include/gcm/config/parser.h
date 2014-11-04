@@ -63,8 +63,10 @@ class Parser {
 public:
     static constexpr const char *DefaultFileName = "unknown";
 
-    Parser(Value &val): root_value(val), current(&val), file_name(DefaultFileName) {}
-    Parser(Value &val, const std::string &file): root_value(val), current(&val), file_name(file) {}
+    Parser(Value &val): root_value(val), current(&val), file_name(DefaultFileName), log(gcm::logging::getLogger("GCM.ConfigParser")) {}
+    Parser(Value &val, const std::string &file): root_value(val), current(&val), file_name(file), log(gcm::logging::getLogger("GCM.ConfigParser")) {
+        DEBUG(log) << "Reading config file " << file << ".";
+    }
 
     template<typename I>
     void parse(I begin, I end) {
@@ -72,6 +74,7 @@ public:
         using namespace gcm::parser;
 
         rule<I> value;
+        rule<I> value_in_array;
 
         auto v_string = '"' & *(any_rule() - '"') & '"';
         auto v_int = -('+'_r | '-'_r) & +digit();
@@ -110,8 +113,8 @@ public:
 
         auto v_array = '['_r >> std::bind(&Parser::array_begin<I>, this, _1, _2)
             & space
-            & *(value & space & ','_r & space)
-            & -(value)
+            & *(value_in_array & space & ','_r & space)
+            & -(value_in_array)
             & space
             & ']'_r >> std::bind(&Parser::array_end<I>, this, _1, _2);
 
@@ -128,6 +131,8 @@ public:
             | v_struct 
             | v_bool 
             | v_null);
+
+        value_in_array = !(']'_r) >> std::bind(&Parser::array_item<I>, this, _1, _2) & value;
 
         auto parser = space &
             (+(preprocessor | item) | end_rule()) / std::bind(&Parser::error<I>, this, "Required identifier.", begin, _1)
@@ -151,6 +156,7 @@ protected:
     Value &root_value;
     Value *current;
     const std::string file_name;
+    gcm::logging::Logger &log;
 
     template<typename I>
     void error(const std::string &desc, I begin, I end) {
@@ -177,14 +183,41 @@ protected:
         current = &(p.second);
     }
 
+    template<typename I>
+    void array_item(I, I) {
+        Value v;
+        v.parent = current;
+
+        std::stringstream ss;
+        ss << current->asArray().size();
+
+        if (current->identifier.empty()) {
+            v.identifier = ss.str();
+        } else {
+            v.identifier = current->identifier + "." + ss.str();
+        }
+
+        auto &s = current->asArray();
+
+        s.emplace_back(v);
+        current = &(s.back());
+    }
+
     template<typename T>
     void set_value(T value) {
-        if (current->getType() == Value::Type::Array) {
-            current->asArray().emplace_back(value);
-        } else {
-            (*current) = value;
-            current = current->parent;
-        }
+        DEBUG(gcm::logging::getLogger("GCM.ConfigParser"))
+            << std::boolalpha << "Setting value of " << current->identifier << " to '" << value << "'";
+
+        (*current) = value;
+        current = current->parent;
+    }
+
+    void set_value(nullptr_t value) {
+        DEBUG(gcm::logging::getLogger("GCM.ConfigParser"))
+            << std::boolalpha << "Setting value of " << current->identifier << "to NULL";
+
+        (*current) = value;
+        current = current->parent;
     }
 
     template<typename I>

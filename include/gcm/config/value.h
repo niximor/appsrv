@@ -75,6 +75,9 @@ public:
             case Type::Bool: return value.bool_value;
             default:
                 test_type(Type::Int);
+
+                // This won't happen, because test_type will throw.
+                return value.int_value;
         }
     }
 
@@ -87,6 +90,9 @@ public:
             case Type::Bool: return value.bool_value;
             default:
                 test_type(Type::Double);
+
+                // This won't happen, because test_type will throw.
+                return value.double_value;
         }
     }
 
@@ -99,6 +105,9 @@ public:
             case Type::Bool: return value.bool_value;
             default:
                 test_type(Type::Bool);
+
+                // This won't happen, because test_type will throw.
+                return value.bool_value;
         }
     }
 
@@ -120,8 +129,12 @@ public:
 
             case Type::String: return value.string_value;
             case Type::Bool: return (value.bool_value ? "true" : "false");
+
             default:
                 test_type(Type::String);
+
+                // This won't happen, because test_type will throw.
+                return value.string_value;
         }
     }
 
@@ -135,7 +148,14 @@ public:
         return value.struct_value;
     }
 
+    bool isInt() { return type == Type::Int; }
+    bool isDouble() { return type == Type::Double; }
+    bool isBool() { return type == Type::Bool; }
+    bool isString() { return type == Type::String; }
     bool isNull() { return type == Type::Null; }
+    bool isArray() { return type == Type::Array; }
+    bool isStruct() { return type == Type::Struct; }
+    
     Type getType() { return type; }
 
     Value &operator[](size_t index) {

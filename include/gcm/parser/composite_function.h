@@ -89,5 +89,11 @@ operator-(Rule &&rule) {
     );
 }
 
+template<typename Rule>
+not_rule_t<std::decay_t<Rule>>
+operator!(Rule &&rule) {
+    return not_rule(std::forward<Rule>(rule));
+}
+
 } // namespace parser
 } // namespace gcm

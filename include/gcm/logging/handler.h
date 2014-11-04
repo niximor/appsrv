@@ -25,6 +25,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <memory>
 
 #include "message.h"
 #include "formatter.h"
@@ -32,46 +33,90 @@
 namespace gcm {
 namespace logging {
 
+struct Levels {
+    bool critical;
+    bool error;
+    bool warning;
+    bool info;
+    bool debug;
+};
+
 class Handler {
 public:
-    Handler(Formatter &&formatter): formatter(std::move(formatter)) {}
+    Handler(Formatter &&formatter):
+        formatter(std::forward<Formatter>(formatter)),
+        levels{true, true, true, true, false}
+    {}
+
 	Handler(Handler &&) = default;
 
     virtual void write(Message &msg) = 0;
     virtual ~Handler();
 
+    void enable_type(MessageType type) {
+        set_type(type, true);
+    }
+
+    void disable_type(MessageType type) {
+        set_type(type, false);
+    }
+
+    void set_type(MessageType type, bool enabled) {
+        switch (type) {
+            case MessageType::Critical: levels.critical = enabled; break;
+            case MessageType::Error: levels.error = enabled; break;
+            case MessageType::Warning: levels.warning = enabled; break;
+            case MessageType::Info: levels.info = enabled; break;
+            case MessageType::Debug: levels.debug = enabled; break;
+        }
+    }
+
+    bool is_enabled(MessageType type) {
+        switch (type) {
+            case MessageType::Critical: return levels.critical;
+            case MessageType::Error: return levels.error;
+            case MessageType::Warning: return levels.warning;
+            case MessageType::Info: return levels.info;
+            case MessageType::Debug: return levels.debug;
+        }
+        return false;
+    }
+
 protected:
     Formatter formatter;
+    Levels levels;
 };
 
 class FileHandler: public Handler {
 public:
     FileHandler(const std::string &fileName, Formatter &&formatter):
-		Handler(std::move(formatter)),
-		stream(fileName, std::ios_base::app)
+		Handler(std::forward<Formatter>(formatter)),
+		stream(std::make_shared<std::ofstream>(fileName, std::ios_base::app))
     {}
-	FileHandler(FileHandler &&) = default;
 
     virtual void write(Message &msg) {
-        formatter.write(msg, stream);
-		stream << std::endl;
+        if (is_enabled(msg.get_severenity())) {
+            formatter.write(msg, *stream);
+            *stream << std::endl;
+        }
     }
 
 protected:
-    std::ofstream stream;
+    std::shared_ptr<std::ofstream> stream;
 };
 
 class StdErrHandler: public Handler {
 public:
 	StdErrHandler(Formatter &&formatter):
-		Handler(std::move(formatter)),
+		Handler(std::forward<Formatter>(formatter)),
 		stream(std::cerr)
 	{}
-	StdErrHandler(StdErrHandler &&) = default;
 
 	virtual void write(Message &msg) {
-		formatter.write(msg, stream);
-		stream << std::endl;
+        if (is_enabled(msg.get_severenity())) {
+            formatter.write(msg, stream);
+            stream << std::endl;
+        }
 	}
 
 protected:

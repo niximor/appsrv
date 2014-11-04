@@ -80,8 +80,8 @@ public:
 		handlers.emplace_back(std::make_unique<H>(std::move(other)));
 	}
 
-    HandlerList &get_handlers() {
-        if (handlers.empty() && &(parent) != this) {
+    HandlerList &get_handlers(bool only_direct = false) {
+        if (!only_direct && handlers.empty() && &(parent) != this) {
             return parent.get_handlers();
         }
         return handlers;

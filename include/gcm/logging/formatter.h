@@ -41,7 +41,7 @@ public:
         add_format(params...);
     }
 
-	Formatter(const Formatter &) = delete;
+	Formatter(const Formatter &) = default;
 	Formatter(Formatter &&) = default;
 
     template<typename... T>

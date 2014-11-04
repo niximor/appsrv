@@ -65,5 +65,11 @@ iteration_rule(Rule &&r, int min = 0, int max = -1) {
     );
 }
 
+template<typename Rule>
+inline std::enable_if_t<is_rule<Rule>::value, not_rule_t<std::decay_t<Rule>>>
+not_rule(Rule &&r) {
+    return not_rule_t<std::decay_t<Rule>>(std::forward<Rule>(r));
+}
+
 } // namespace parser
 } // namespace gcm

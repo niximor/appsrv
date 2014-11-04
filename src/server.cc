@@ -23,7 +23,9 @@
 
 #include <gcm/socket/server.h>
 #include <gcm/logging/logging.h>
+#include <gcm/logging/util.h>
 #include <gcm/config/config.h>
+#include <gcm/io/io.h>
 
 namespace s = gcm::socket;
 namespace l = gcm::logging;
@@ -33,25 +35,22 @@ void client(s::ConnectedSocket<s::AnyIpAddress> &&client) {
 	(void)client;
 }
 
-void setup_logging() {
-	auto &log = l::getLogger("");
-	log.add_handler(l::StdErrHandler(l::Formatter(
-			l::field::Date(), " appsrv.", l::field::Name(), "[", l::field::Pid(), "] ", 
-			l::field::Severenity(), ": ", l::field::Message(), " {",
-			l::field::File(), ":", l::field::Line(), "}"
-	)));
-}
+int main(int, char *argv[]) {
+	std::string appname{gcm::io::basename(argv[0])};
+	l::util::setup_logging(appname, {
+        l::MessageType::Critical,
+        l::MessageType::Error,
+        l::MessageType::Warning,
+        l::MessageType::Info,
+        l::MessageType::Debug
+    });
 
-int main(void) {
-	setup_logging();
+	c::Config cfg("../conf/appsrv.conf");
+	l::util::setup_logging(appname, cfg);
 
 	/*auto server = s::TcpServer{};
 	server.listen(s::Inet6{"::", 12345});
 	server.listen(s::Inet{"0.0.0.0", 12346});
 
 	server.serve_forever(client);*/
-
-	{
-		c::Config cfg("../conf/appsrv.conf");
-	}
 }
