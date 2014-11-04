@@ -1,3 +1,26 @@
+/**
+ * Copyright 2014 Michal Kuchta <niximor@gmail.com>
+ *
+ * This file is part of GCM::AppSrv.
+ *
+ * GCM::AppSrv is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * GCM::AppSrv is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with GCM::AppSrv. If not, see http://www.gnu.org/licenses/.
+ *
+ * @author Michal Kuchta <niximor@gmail.com>
+ * @date 2014-11-02
+ *
+ */
+
 #pragma once
 
 #include <stdexcept>
@@ -6,7 +29,9 @@
 #include <string>
 
 #include <gcm/parser/parser.h>
+#include <gcm/logging/logging.h>
 #include <gcm/io/glob.h>
+#include <gcm/io/exception.h>
 
 namespace gcm {
 namespace config {
@@ -17,26 +42,29 @@ public:
         std::runtime_error(what)
     {}
 
-    parse_error(const gcm::parser::ParserPosition &pos, const std::string &what):
-        std::runtime_error([](const gcm::parser::ParserPosition &pos, const std::string &what) {
+    parse_error(const std::string &file, const gcm::parser::ParserPosition &pos, const std::string &what):
+        std::runtime_error([&]() {
             std::stringstream ss;
-            ss << "on line " << pos.first << ", column " << pos.second << ": " << what;
+            ss << file << ":" << pos.first << ":" << pos.second << ": " << what;
             return ss.str();
-        }(pos, what))
+        }())
     {}
 
-    parse_error(const gcm::parser::ParserPosition &pos, const char *what):
-        std::runtime_error([](const gcm::parser::ParserPosition &pos, const char *what) {
+    parse_error(const std::string &file, const gcm::parser::ParserPosition &pos, const char *what):
+        std::runtime_error([&]() {
             std::stringstream ss;
-            ss << "on line " << pos.first << ", column " << pos.second << ": " << what;
+            ss << file << ":" << pos.first << ":" << pos.second << ": " << what;
             return ss.str();
-        }(pos, what))
+        }())
     {}
 };
 
 class Parser {
 public:
-    Parser(Value &val): current(&val) {}
+    static constexpr const char *DefaultFileName = "unknown";
+
+    Parser(Value &val): root_value(val), current(&val), file_name(DefaultFileName) {}
+    Parser(Value &val, const std::string &file): root_value(val), current(&val), file_name(file) {}
 
     template<typename I>
     void parse(I begin, I end) {
@@ -55,31 +83,43 @@ public:
         auto block_comment = "/*" & *(any_rule() - "*/") & "*/";
         auto comment = line_comment | block_comment;
 
+        auto space = *(comment | gcm::parser::space());
+
         auto include_cmd = "include" & *gcm::parser::space() & (v_string >> std::bind(&Parser::include_file<I>, this, _1, _2)) & *(gcm::parser::space() - '\n') & '\n';
-        auto preprocessor = '%' & include_cmd;
-        auto space = *(preprocessor | comment | gcm::parser::space());
+        auto preprocessor = '%'_r & include_cmd;
         auto identifier = (alpha() & *alnum()) >> std::bind(&Parser::identifier<I>, this, _1, _2);
 
-        auto item =
-            (identifier / std::bind(&Parser::error<I>, this, "Required identifier.", begin, _1))
-            & space & '=' & space
+        auto assignment = '='_r / std::bind(&Parser::error<I>, this, "Required =.", begin, _1);
+
+        auto item = 
+            identifier
+            & space & assignment & space
             & (value / std::bind(&Parser::error<I>, this, "Required value.", begin, _1))
-            & space & (';'_r / std::bind(&Parser::error<I>, this, "Required ;.", begin, _1));
+            & space & (';'_r / std::bind(&Parser::error<I>, this, "Required ;.", begin, _1))
+            & space;
+
+        auto item_in_struct =
+            (
+                (
+                    identifier & space & assignment & space
+                    & (value / std::bind(&Parser::error<I>, this, "Required value.", begin, _1))
+                    & space & (';'_r / std::bind(&Parser::error<I>, this, "Required ;.", begin, _1))
+                    & space
+                ) | '}'_r >> std::bind(&Parser::struct_end<I>, this, _1, _2)
+            );
 
         auto v_array = '['_r >> std::bind(&Parser::array_begin<I>, this, _1, _2)
             & space
-            & *(value & ','_r & space)
+            & *(value & space & ','_r & space)
             & -(value)
             & space
             & ']'_r >> std::bind(&Parser::array_end<I>, this, _1, _2);
 
         auto v_struct = '{'_r >> std::bind(&Parser::struct_begin<I>, this, _1, _2)
             & space
-            & *(item & space)
-            & space
-            & '}'_r >> std::bind(&Parser::struct_end<I>, this, _1, _2);
+            & (+item_in_struct | '}'_r >> std::bind(&Parser::struct_end<I>, this, _1, _2))
+            / std::bind(&Parser::error<I>, this, "Required identifier or }.", begin, _1);
 
-        // TODO: Rule is copied, so this is discarded.
         value =
               (v_string >> std::bind(&Parser::value_string<I>, this, _1, _2)
             | v_double >> std::bind(&Parser::value_double<I>, this, _1, _2)
@@ -89,23 +129,32 @@ public:
             | v_bool 
             | v_null);
 
-        auto parser = space & *(item & space);
+        auto parser = space &
+            (+(preprocessor | item) | end_rule()) / std::bind(&Parser::error<I>, this, "Required identifier.", begin, _1)
+            & space;
 
         I orig_begin = begin;
-        if (parser(begin, end) && begin == end) {
-            std::cout << "Success" << std::endl;
+        if (parser(begin, end) && begin == end && &root_value == current) {
+            //std::cout << "Success" << std::endl;
         } else {
             auto pos = calc_line_column(orig_begin, begin);
-            throw parse_error(pos, "Parse error while reading config file.");
+
+            if (begin == end) {
+                throw parse_error(file_name, pos, "Premature end of input.");
+            } else {
+                throw parse_error(file_name, pos, "Parse error while reading config file.");
+            }
         }
     }
 
 protected:
+    Value &root_value;
     Value *current;
+    const std::string file_name;
 
     template<typename I>
     void error(const std::string &desc, I begin, I end) {
-        throw parse_error(gcm::parser::calc_line_column(begin, end), desc);
+        throw parse_error(file_name, gcm::parser::calc_line_column(begin, end), desc);
     }
 
     template<typename I>
@@ -122,8 +171,10 @@ protected:
         }
 
         auto &s = current->asStruct();
-        auto p = s.emplace(std::make_pair(identifier, std::move(v)));
-        current = &(p.first->second);
+
+        s.emplace_back(identifier, v);
+        auto &p = s.back();
+        current = &(p.second);
     }
 
     template<typename T>
@@ -193,20 +244,20 @@ protected:
     void include_file(I begin, I end) {
         auto file = std::string(begin + 1, end - 1);
 
-        std::cout << "Including " << file << std::endl;
+        try {
+            gcm::io::Glob glob(file);
+            for (auto file: glob) {
+                std::ifstream f(file, std::ios_base::in);
+                std::string contents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 
-        gcm::io::Glob glob(file);
-        for (auto file: glob) {
-            std::cout << "Matched " << file << std::endl;
-
-            std::ifstream f(file, std::ios_base::in);
-            std::string contents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-
-            Parser p(*current);
-            p.parse(contents.begin(), contents.end());
+                Parser p(root_value, file);
+                p.parse(contents.begin(), contents.end());
+            }
+        } catch (gcm::io::IOException &e) {
+            ERROR(gcm::logging::getLogger("GCM.ConfigParser")) << e.what();
         }
     }
 };
 
-}
-}
+} // namespace config
+} // namespace gcm

@@ -28,6 +28,8 @@
 #include <cstring>
 #include <glob.h>
 
+#include "exception.h"
+
 namespace gcm {
 namespace io {
 
@@ -100,9 +102,9 @@ protected:
     glob_t buf;
 
     static int err(const char *path, int err) {
-        throw std::runtime_error(std::string(path) + ": " + std::strerror(err));
+        throw gcm::io::IOException(std::string(path) + ": " + std::strerror(err));
     }
 };
 
-}
-}
+} // namespace io
+} // namespace gcm

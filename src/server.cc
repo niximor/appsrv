@@ -51,5 +51,7 @@ int main(void) {
 
 	server.serve_forever(client);*/
 
-	c::Config cfg("../conf/appsrv.conf");
+	{
+		c::Config cfg("../conf/appsrv.conf");
+	}
 }

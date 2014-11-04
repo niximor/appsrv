@@ -1,5 +1,5 @@
 CXX := g++-4.9
-CXXFLAGS := -std=c++14 -Wall -Wextra -pedantic-errors -g -ggdb3 -gdwarf-2 -O2
+CXXFLAGS := -std=c++14 -Wall -Wextra -pedantic-errors -g -ggdb3 -gdwarf-2 -O0
 CXXFLAGS += -I../include/
 CXXFLAGS += $(CXXEF)
 LDFLAGS :=

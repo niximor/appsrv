@@ -34,7 +34,7 @@ namespace parser {
 class any_rule: public rule_base {
 public:
     template<typename I>
-    bool operator()(I &begin, I&end) const {
+    bool operator()(I &begin, I &end) const {
 #ifdef PARSER_DEBUG
         DEBUG(this->log) << "Calling " << (std::string)*this << " on " << std::string(begin, end);
 #endif
@@ -49,6 +49,18 @@ public:
 
     operator std::string() const {
         return "any";
+    }
+};
+
+class end_rule: public rule_base {
+public:
+    template<typename I>
+    bool operator()(I &begin, I &end) const {
+        return begin == end;
+    }
+
+    operator std::string() const {
+        return "eof";
     }
 };
 

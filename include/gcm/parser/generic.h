@@ -34,39 +34,37 @@ namespace parser {
 template<typename I>
 class rule: public rule_base {
 public:
+    using Func = std::function<bool(I&,I&)>;
+
     // Default constructor, no action in this rule.
-    rule(): rule_base(), func(nullptr)
+    rule(): rule_base(), func(std::make_shared<Func>(nullptr))
     {}
 
     template<typename Rule>
-    rule(std::enable_if_t<is_rule<Rule>::value, Rule &&> r): rule_base(), func(std::forward<Rule>(r))
+    rule(std::enable_if_t<is_rule<Rule>::value, Rule &&> r):
+        rule_base(),
+        func(std::make_shared<Func>(std::forward<Rule>(r)))
     {}
 
+    // Default constructors
     rule(rule &&) = default;
-    rule(const rule &) = delete;
+    rule(const rule &) = default;
 
     // Assignment operator
-    rule<I> &operator=(const rule<I> &other) {
-        func = other.func;
-        return *this;
-    }
-
-    rule<I> &operator=(rule<I> &&other) {
-        func = std::move(other.func);
-        return *this;
-    }
+    rule<I> &operator=(const rule<I> &other) = default;
+    rule<I> &operator=(rule<I> &&other) = default;
 
     template<typename Rule>
     std::enable_if_t<is_rule<Rule>::value, rule<I> &>
     operator=(Rule && r) {
-        func = std::forward<Rule>(r);
+        *func = std::forward<Rule>(r);
         return *this;
     }
 
     template<typename Rule>
     std::enable_if_t<is_rule<Rule>::value, rule<I> &>
     operator=(const Rule & r) {
-        func = r;
+        *func = r;
         return *this;
     }
 
@@ -76,8 +74,8 @@ public:
         DEBUG(this->log) << "Calling " << (std::string)*this << " on " << std::string(begin, end);
 #endif
 
-        if (func != nullptr) {
-            return func(begin, end);
+        if (*func != nullptr) {
+            return (*func)(begin, end);
         } else {
 #ifdef PARSER_DEBUG
         DEBUG(this->log) << "Empty " << (std::string)*this;
@@ -91,7 +89,7 @@ public:
     }
 
 protected:
-    std::function<bool(I&,I&)> func;
+    std::shared_ptr<Func> func;
 };
 
 }
