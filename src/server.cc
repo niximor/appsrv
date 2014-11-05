@@ -26,14 +26,49 @@
 #include <gcm/logging/util.h>
 #include <gcm/config/config.h>
 #include <gcm/io/io.h>
+#include <gcm/thread/pool.h>
 
 namespace s = gcm::socket;
 namespace l = gcm::logging;
 namespace c = gcm::config;
 
-void client(s::ConnectedSocket<s::AnyIpAddress> &&client) {
-	(void)client;
-}
+class ClientProcessor {
+public:
+    ClientProcessor(s::ConnectedSocket<s::AnyIpAddress> &&client):
+        client(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client))
+    {}
+    ClientProcessor(ClientProcessor &&) = default;
+
+    void operator()() {
+        auto &log = l::getLogger("client");
+        auto &addr = client.get_client_address();
+
+        DEBUG(log) << "Handle client " << addr.get_ip() << ":" << addr.get_port() << ".";
+
+        client << std::string("Hello!\r\n");
+        sleep(5);
+        client << std::string("Bye!\r\n");
+
+        DEBUG(log) << "Client " << addr.get_ip() << ":" << addr.get_port() << " handled.";
+    }
+
+protected:
+    s::ConnectedSocket<s::AnyIpAddress> client;
+};
+
+class Handler {
+public:
+    void operator()(s::ConnectedSocket<s::AnyIpAddress> &&client) {
+        auto &log = l::getLogger("client");
+        auto &addr = client.get_client_address();
+
+        DEBUG(log) << "New connection from " << addr.get_ip() << ":" << addr.get_port() << ".";
+        pool.add_work(ClientProcessor(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client)));
+    }
+
+protected:
+    gcm::thread::Pool<ClientProcessor> pool;
+};
 
 int main(int, char *argv[]) {
 	std::string appname{gcm::io::basename(argv[0])};
@@ -48,9 +83,10 @@ int main(int, char *argv[]) {
 	c::Config cfg("../conf/appsrv.conf");
 	l::util::setup_logging(appname, cfg);
 
-	/*auto server = s::TcpServer{};
+	auto server = s::TcpServer{};
 	server.listen(s::Inet6{"::", 12345});
 	server.listen(s::Inet{"0.0.0.0", 12346});
 
-	server.serve_forever(client);*/
+    Handler handler;
+	server.serve_forever(handler);
 }

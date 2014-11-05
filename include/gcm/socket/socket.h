@@ -387,6 +387,34 @@ public:
 		bind_address = bind_addr;
 	}
 
+	/**
+	 * Bind to device (eth0 for example).
+	 */
+	void bind(std::string device) {
+		setopt(SO_BINDTODEVICE, device);
+	}
+
+	template<typename T>
+	void setopt(int optname, T val, int level = SOL_SOCKET) {
+		if (::setsockopt(fd, level, optname, &val, sizeof(T)) < 0) {
+			throw SocketException(errno);
+		}
+	}
+
+	void setopt(int optname, std::string val, int level = SOL_SOCKET) {
+		if (::setsockopt(fd, level, optname, val.c_str(), val.size()) < 0) {
+			throw SocketException(errno);
+		}
+	}
+
+	template<typename T>
+	T getopt(int optname, int level = SOL_SOCKET) {
+		T out;
+		::getsockopt(fd, level, &out, sizeof(T));
+
+		return out;
+	}
+
 protected:
 	int fd;
 	Address bind_address;

@@ -37,30 +37,35 @@ public:
 
 	void listen(Inet6 &&address) {
 		in6_listens.emplace_back(Type::Stream);
-		in6_listens.back().bind(address);
-		in6_listens.back().listen();
+		auto &socket = in6_listens.back();
+		socket.setopt(SO_REUSEADDR, 1);
+		socket.bind(address);
+		socket.listen();
 
 		INFO(log) << "Listening on [" << address.get_ip() << "]:" << address.get_port();
 	}
 
 	void listen(Inet &&address) {
 		in_listens.emplace_back(Type::Stream);
-		in_listens.back().bind(address);
-		in_listens.back().listen();
+		auto &socket = in_listens.back();
+		socket.setopt(SO_REUSEADDR, 1);
+		socket.bind(address);
+		socket.listen();
 		
 		INFO(log) << "Listening on " << address.get_ip() << ":" << address.get_port();
 	}
 
-	void serve_forever(std::function<void(ConnectedSocket<Inet> &&)> handle, std::function<void(ConnectedSocket<Inet6> &&)> handle_v6) {
+	template<typename T, typename T6>
+	void serve_forever(T &&handle, T &&handle_v6) {
 		try {
 			while (true) {
 				Select select;
 				for (ServerSocket<Inet6> &s: in6_listens) {
-					select.add(s, AcceptHandler<Inet6>{s, handle_v6}, nullptr, nullptr);
+					select.add(s, AcceptHandler<std::decay_t<T>, Inet6>{s, std::forward<T6>(handle_v6)}, nullptr, nullptr);
 				}
 
 				for (ServerSocket<Inet> &s: in_listens) {
-					select.add(s, AcceptHandler<Inet>{s, handle}, nullptr, nullptr);
+					select.add(s, AcceptHandler<std::decay_t<T>, Inet>{s, std::forward<T>(handle)}, nullptr, nullptr);
 				}
 
 				select.select();
@@ -69,16 +74,17 @@ public:
 		}
 	}
 
-	void serve_forever(std::function<void(ConnectedSocket<AnyIpAddress> &&)> handle) {
+	template<typename T>
+	void serve_forever(T &&handle) {
 		try {
 			while (true) {
 				Select select;
 				for (ServerSocket<Inet6> &s: in6_listens) {
-					select.add(s, AcceptHandler<Inet6, AnyIpAddress>{s, handle}, nullptr, nullptr);
+					select.add(s, AcceptHandler<std::decay_t<T>, Inet6, AnyIpAddress>{s, std::forward<T>(handle)}, nullptr, nullptr);
 				}
 
 				for (ServerSocket<Inet> &s: in_listens) {
-					select.add(s, AcceptHandler<Inet, AnyIpAddress>{s, handle}, nullptr, nullptr);
+					select.add(s, AcceptHandler<std::decay_t<T>, Inet, AnyIpAddress>{s, std::forward<T>(handle)}, nullptr, nullptr);
 				}
 
 				select.select();
@@ -92,14 +98,15 @@ private:
 	std::vector<ServerSocket<Inet>> in_listens;
 	gcm::logging::Logger &log;
 
-	template <typename ServerAddress, typename ClientAddress = ServerAddress>
+	template <typename HandlerType, typename ServerAddress, typename ClientAddress = ServerAddress>
 	struct AcceptHandler {
-		using HandlerType = std::function<void(ConnectedSocket<ClientAddress> &&)>;
-
 		ServerSocket<ServerAddress> &s;
-		HandlerType handler;
+		HandlerType &handler;
 
-		AcceptHandler(ServerSocket<ServerAddress> &s, HandlerType handler): s(s), handler(handler) {}
+		template<typename H>
+		AcceptHandler(ServerSocket<ServerAddress> &s, H &&handler):
+			s(s), handler(std::forward<H>(handler)) {}
+
 		AcceptHandler(AcceptHandler &&other) = default;
 		AcceptHandler(const AcceptHandler &other) = default;
 
