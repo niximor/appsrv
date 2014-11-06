@@ -27,10 +27,13 @@
 #include <gcm/config/config.h>
 #include <gcm/io/io.h>
 #include <gcm/thread/pool.h>
+#include <gcm/thread/signal.h>
 
 namespace s = gcm::socket;
 namespace l = gcm::logging;
 namespace c = gcm::config;
+
+using gcm::thread::Signal;
 
 class ClientProcessor {
 public:
@@ -58,16 +61,23 @@ protected:
 
 class Handler {
 public:
+    Handler(): pool(gcm::thread::make_pool<ClientProcessor>(5, 5))
+    {}
+
+    ~Handler() {
+        pool->stop();
+    }
+
     void operator()(s::ConnectedSocket<s::AnyIpAddress> &&client) {
         auto &log = l::getLogger("client");
         auto &addr = client.get_client_address();
 
         DEBUG(log) << "New connection from " << addr.get_ip() << ":" << addr.get_port() << ".";
-        pool.add_work(ClientProcessor(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client)));
+        pool->add_work(ClientProcessor(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client)));
     }
 
 protected:
-    gcm::thread::Pool<ClientProcessor> pool;
+    std::shared_ptr<gcm::thread::Pool<ClientProcessor>> pool;
 };
 
 int main(int, char *argv[]) {
@@ -87,6 +97,10 @@ int main(int, char *argv[]) {
 	server.listen(s::Inet6{"::", 12345});
 	server.listen(s::Inet{"0.0.0.0", 12346});
 
+    Signal::at(SIGINT, std::bind(&s::TcpServer::stop, &server));
+
     Handler handler;
 	server.serve_forever(handler);
+
+    INFO(l::getLogger("")) << "Server quit.";
 }

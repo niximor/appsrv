@@ -32,7 +32,8 @@ namespace socket {
 
 class TcpServer {
 public:
-	TcpServer(): log(gcm::logging::getLogger("TcpServer")) {}
+	TcpServer(): quit(false), log(gcm::logging::getLogger("TcpServer")) {}
+	TcpServer(const TcpServer &) = default;
 	TcpServer(TcpServer &&other) = default;
 
 	void listen(Inet6 &&address) {
@@ -58,7 +59,7 @@ public:
 	template<typename T, typename T6>
 	void serve_forever(T &&handle, T &&handle_v6) {
 		try {
-			while (true) {
+			while (!quit) {
 				Select select;
 				for (ServerSocket<Inet6> &s: in6_listens) {
 					select.add(s, AcceptHandler<std::decay_t<T>, Inet6>{s, std::forward<T6>(handle_v6)}, nullptr, nullptr);
@@ -77,7 +78,7 @@ public:
 	template<typename T>
 	void serve_forever(T &&handle) {
 		try {
-			while (true) {
+			while (!quit) {
 				Select select;
 				for (ServerSocket<Inet6> &s: in6_listens) {
 					select.add(s, AcceptHandler<std::decay_t<T>, Inet6, AnyIpAddress>{s, std::forward<T>(handle)}, nullptr, nullptr);
@@ -93,7 +94,12 @@ public:
 		}
 	}
 
+	void stop() {
+		quit = true;
+	}
+
 private:
+	bool quit;
 	std::vector<ServerSocket<Inet6>> in6_listens;
 	std::vector<ServerSocket<Inet>> in_listens;
 	gcm::logging::Logger &log;

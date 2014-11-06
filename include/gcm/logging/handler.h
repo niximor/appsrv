@@ -25,6 +25,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <memory>
 
 #include "message.h"
@@ -96,8 +97,14 @@ public:
 
     virtual void write(Message &msg) {
         if (is_enabled(msg.get_severenity())) {
-            formatter.write(msg, *stream);
-            *stream << std::endl;
+            // Need to buffer the message first, to write it to the file
+            // at once, because otherwise other threads would interrupt
+            // our custom message processing and write another data
+            // to the file between field writes.
+            std::stringstream ss;
+            formatter.write(msg, ss);
+            ss << std::endl;
+            *stream << ss.str();
         }
     }
 
@@ -114,8 +121,14 @@ public:
 
 	virtual void write(Message &msg) {
         if (is_enabled(msg.get_severenity())) {
-            formatter.write(msg, stream);
-            stream << std::endl;
+            // Need to buffer the message first, to write it to the file
+            // at once, because otherwise other threads would interrupt
+            // our custom message processing and write another data
+            // to the file between field writes.
+            std::stringstream ss;
+            formatter.write(msg, ss);
+            ss << std::endl;
+            stream << ss.str();
         }
 	}
 

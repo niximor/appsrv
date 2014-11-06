@@ -30,6 +30,7 @@
 #include <deque>
 #include <list>
 #include <atomic>
+#include <memory>
 
 #include <gcm/logging/logging.h>
 
@@ -71,13 +72,10 @@ public:
         state(WorkerState::Starting),
         quit(false),
         thread(WorkerWrapper<T>(this))
-    {
-        auto &log = gcm::logging::getLogger("GCM.ThreadPool");
-        DEBUG(log) << "Started new thread.";
-    }
+    {}
 
     Worker(const Worker<T> &) = delete;
-    Worker(Worker<T> &&) = default;
+    Worker(Worker<T> &&) = delete;
 
     WorkerState get_state() {
         return state;
@@ -86,22 +84,24 @@ public:
     void operator()() {
         auto &log = gcm::logging::getLogger("GCM.ThreadPool");
         while (true) {
+            if (state == WorkerState::Starting) {
+                pool.num_free++;
+                pool.num_starting--;
+            } else {
+                pool.num_free++;
+            }
+
             state = WorkerState::Free;
-            pool.num_free++;
 
             std::unique_lock<std::mutex> lock(pool.worker_mutex);
-            while (pool.tasks.empty() && !quit) {
-                DEBUG(log) << "Thread is going to sleep.";
+            while (!quit) {
+                if (!pool.tasks.empty()) break;
                 pool.worker_cond.wait(lock);
-                DEBUG(log) << "Thread awaken.";
             }
 
             if (quit) {
-                DEBUG(log) << "Thread quit request.";
                 break;
             }
-
-            DEBUG(log) << "Thread has work.";
 
             state = WorkerState::Busy;
             pool.num_free--;
@@ -115,17 +115,15 @@ public:
             try {
                 task();
             } catch (std::exception &e) {
-                ERROR(log) << "Exception thrown while executing thread job: " << e.what();
+                ERROR(log) << std::this_thread::get_id() << " Exception thrown while executing thread job: " << e.what();
             } catch (...) {
-                ERROR(log) << "Unknown exception thrown while executing thread job.";
+                ERROR(log) << std::this_thread::get_id() << " Unknown exception thrown while executing thread job.";
             }
-
-            DEBUG(log) << "Work has been done.";
 
             pool.num_busy--;
         }
 
-        DEBUG(log) << "Thread finished.";
+        pool.num_free--;
     }
 
     void stop() {
@@ -152,29 +150,41 @@ public:
         check_interval(check_interval),
         num_free(0),
         num_busy(0),
-        keeper_thread(&Pool::keeper_func, this),
-        quit(false)
+        num_starting(0),
+        quit(false),
+        keeper_thread(&Pool::keeper_func, this)
     {
-        start_spares();
     }
 
-    void stop() {
-        kill_spares();
+    Pool(const Pool &) = delete;
+    Pool(Pool &&other) = delete;
 
+    void stop() {
         quit = true;
         keeper_cond.notify_all();
+
+        std::unique_lock<std::mutex> lock(worker_mutex);
+        while (!workers.empty()) {
+            auto it = workers.begin();
+            (*it)->stop();
+            to_collect.emplace_back(std::move(*it));
+            workers.erase(it);
+        }
+        lock.unlock();
+
+        worker_cond.notify_all();
+
+        while (!to_collect.empty()) {
+            to_collect.back()->get_thread().join();
+            to_collect.pop_back();
+        }
     }
 
     void add_work(T &&w) {
         std::unique_lock<std::mutex> lock(worker_mutex);
         tasks.emplace_back(std::forward<T>(w));
 
-        auto &log = gcm::logging::getLogger("GCM.ThreadPool");
-        DEBUG(log) << "New work.";
-
         worker_cond.notify_one();
-
-        DEBUG(log) << "Worker notified.";
     }
 
     ~Pool() {
@@ -194,14 +204,15 @@ protected:
     std::condition_variable worker_cond;
     std::mutex worker_mutex;
 
-    std::list<Worker<T>> workers;
-    std::list<Worker<T>> to_collect;
+    std::list<std::unique_ptr<Worker<T>>> workers;
+    std::list<std::unique_ptr<Worker<T>>> to_collect;
 
     std::atomic<int> num_free;
     std::atomic<int> num_busy;
+    std::atomic<int> num_starting;
 
-    std::thread keeper_thread;
     bool quit;
+    std::thread keeper_thread;
 
     std::condition_variable keeper_cond;
     std::mutex keeper_mutex;
@@ -213,7 +224,7 @@ protected:
             start_spares();
 
             while (!to_collect.empty()) {
-                to_collect.back().get_thread().join();
+                to_collect.back()->get_thread().join();
                 to_collect.pop_back();
             }
 
@@ -225,15 +236,12 @@ protected:
     void kill_spares() {
         std::unique_lock<std::mutex> lock(worker_mutex);
 
-        int to_kill = num_free - min_spare;
+        int to_kill = (num_free + num_starting) - min_spare;
 
         if (to_kill > 0) {
-            auto &log = gcm::logging::getLogger("GCM.ThreadPool");
-            DEBUG(log) << "Stopping " << to_kill << " threads.";
-
             for (auto it = workers.begin(); to_kill > 0 && it != workers.end(); ++it) {
-                if (it->get_state() == WorkerState::Free) {
-                    it->stop();
+                if ((*it)->get_state() == WorkerState::Free) {
+                    (*it)->stop();
                     to_collect.emplace_back(std::move(*it));
                     workers.erase(it);
 
@@ -250,22 +258,25 @@ protected:
     void start_spares() {
         std::unique_lock<std::mutex> lock(worker_mutex);
 
-        int to_start = min_spare - num_free;
+        int to_start = min_spare - num_free - num_starting;
         if (workers.size() + to_start > max_workers) {
             to_start = max_workers - workers.size();
         }
 
         if (to_start > 0) {
-            auto &log = gcm::logging::getLogger("GCM.ThreadPool");
-            DEBUG(log) << "Starting " << to_start << " threads.";
-
             while (to_start > 0) {
-                workers.emplace_back(*this);
+                num_starting++;
+                workers.emplace_back(std::make_unique<Worker<T>>(*this));
                 --to_start;
             }
         }
     }
 };
+
+template<typename T>
+std::shared_ptr<Pool<T>> make_pool(size_t min_spare = 5, size_t max_workers = 50, size_t check_interval = 100) {
+    return std::make_shared<Pool<T>>(min_spare, max_workers, check_interval);
+}
 
 }
 }
