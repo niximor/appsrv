@@ -21,6 +21,9 @@
  *
  */
 
+#include <vector>
+#include <thread>
+
 #include <gcm/socket/server.h>
 #include <gcm/logging/logging.h>
 #include <gcm/logging/util.h>
@@ -29,11 +32,13 @@
 #include <gcm/thread/pool.h>
 #include <gcm/thread/signal.h>
 
+#include "interface.h"
+
 namespace s = gcm::socket;
 namespace l = gcm::logging;
 namespace c = gcm::config;
 
-using gcm::thread::Signal;
+using namespace gcm::appsrv;
 
 class ClientProcessor {
 public:
@@ -93,14 +98,13 @@ int main(int, char *argv[]) {
 	c::Config cfg("../conf/appsrv.conf");
 	l::util::setup_logging(appname, cfg);
 
-	auto server = s::TcpServer{};
-	server.listen(s::Inet6{"::", 12345});
-	server.listen(s::Inet{"0.0.0.0", 12346});
+    std::vector<Interface> interfaces;
 
-    Signal::at(SIGINT, std::bind(&s::TcpServer::stop, &server));
-
-    Handler handler;
-	server.serve_forever(handler);
+    auto &cfg_interfaces = cfg.getAll("interface");
+    for (auto &if: cfg_interfaces) {
+        interfaces.emplace_back(if);
+        interfaces.back()._start();
+    }
 
     INFO(l::getLogger("")) << "Server quit.";
 }

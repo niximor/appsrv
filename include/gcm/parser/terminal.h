@@ -25,6 +25,7 @@
 
 #include <string>
 #include <cctype>
+#include <typeinfo>
 
 #include "base.h"
 

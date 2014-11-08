@@ -37,7 +37,7 @@ namespace logging {
 #define INFO(logger) logger.info(__FILE__, __LINE__)
 #define DEBUG(logger) logger.debug(__FILE__, __LINE__)
 
-Logger &getLogger(const std::string &name) {
+inline Logger &getLogger(const std::string &name) {
 	return Logger::get(name);
 }
 

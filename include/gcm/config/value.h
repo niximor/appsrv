@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <sstream>
 
 namespace gcm {
 namespace config {
