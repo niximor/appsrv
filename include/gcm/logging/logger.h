@@ -130,7 +130,7 @@ public:
 	}
 
 private:
-    Logger(): parent(*this), name("RootLogger")
+    Logger(): parent(*this), name("")
 	{}
 
     Logger(Logger &parent, const std::string &name): parent(parent), name(name)

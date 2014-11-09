@@ -31,6 +31,8 @@
 
 #include <signal.h>
 
+#include <gcm/logging/logging.h>
+
 namespace gcm {
 namespace thread {
 

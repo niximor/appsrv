@@ -231,32 +231,62 @@ protected:
 
 class space: public ctype_rule<std::isspace> {
 public:
-    operator std::string() const { return "space"; };
-};
-
-class alpha: public ctype_rule<std::isalpha> {
-public:
-    operator std::string() const { return "alpha"; };
-};
-
-class alnum: public ctype_rule<std::isalnum> {
-public:
-    operator std::string() const { return "alnum"; };
-};
-
-class digit: public ctype_rule<std::isdigit> {
-public:
-    operator std::string() const { return "digit"; };
-};
-
-class xdigit: public ctype_rule<std::isxdigit> {
-public:
-    operator std::string() const { return "xdigit"; };
+    operator std::string() const { return "space"; }
 };
 
 class print: public ctype_rule<std::isprint> {
 public:
-    operator std::string() const { return "print"; };
+    operator std::string() const { return "print"; }
+};
+
+class cntrl: public ctype_rule<std::iscntrl> {
+public:
+    operator std::string() const { return "cntrl"; }
+};
+
+class upper: public ctype_rule<std::isupper> {
+public:
+    operator std::string() const { return "upper"; }
+};
+
+class lower: public ctype_rule<std::islower> {
+public:
+    operator std::string() const { return "lower"; }
+};
+
+class alpha: public ctype_rule<std::isalpha> {
+public:
+    operator std::string() const { return "alpha"; }
+};
+
+class digit: public ctype_rule<std::isdigit> {
+public:
+    operator std::string() const { return "digit"; }
+};
+
+class punct: public ctype_rule<std::ispunct> {
+public:
+    operator std::string() const { return "punct"; }
+};
+
+class xdigit: public ctype_rule<std::isxdigit> {
+public:
+    operator std::string() const { return "xdigit"; }
+};
+
+class blank: public ctype_rule<std::isblank> {
+public:
+    operator std::string() const { return "blank"; }
+};
+
+class alnum: public ctype_rule<std::isalnum> {
+public:
+    operator std::string() const { return "alnum"; }
+};
+
+class graph: public ctype_rule<std::isgraph> {
+public:
+    operator std::string() const { return "graph"; }
 };
 
 } // namespace parser

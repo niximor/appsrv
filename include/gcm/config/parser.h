@@ -90,7 +90,7 @@ public:
 
         auto include_cmd = "include" & *gcm::parser::space() & (v_string >> std::bind(&Parser::include_file<I>, this, _1, _2)) & *(gcm::parser::space() - '\n') & '\n';
         auto preprocessor = '%'_r & include_cmd;
-        auto identifier = (alpha() & *alnum()) >> std::bind(&Parser::identifier<I>, this, _1, _2);
+        auto identifier = (alpha() & *(alnum() | '_' | '-')) >> std::bind(&Parser::identifier<I>, this, _1, _2);
 
         auto assignment = '='_r / std::bind(&Parser::error<I>, this, "Required =.", begin, _1);
 

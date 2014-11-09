@@ -24,50 +24,151 @@
 #include <future>
 
 #include <gcm/config/value.h>
+#include <gcm/socket/server.h>
+#include <gcm/socket/socket.h>
+#include <gcm/socket/util.h>
+#include <gcm/thread/pool.h>
+#include <gcm/thread/signal.h>
+#include <gcm/appsrv/interface.h>
+#include <gcm/logging/logging.h>
+#include <gcm/io/util.h>
 
 #include "interface.h"
 
 using namespace gcm::appsrv;
 using gcm::thread::Signal;
+namespace s = gcm::socket;
+namespace l = gcm::logging;
 
-Interface::Interface(gcm::config::Value &interface):
-    library(interface["handler"].asString()),
-    config(interface)
+Handler::~Handler() {
+    
+}
+
+std::string find_handler(gcm::config::Config &cfg, std::string name, bool test_default_dir = true) {
+    if (gcm::io::exists(name)) {
+        return name;
+    } else if (gcm::io::exists(name + ".so")) {
+        return name + ".so";
+    } else if (test_default_dir) {
+        return find_handler(cfg, cfg.get("handler_dir", "./") + "/" + name, false);
+    } else {
+        return name;
+    }
+}
+
+IntInterface::IntInterface(gcm::config::Config &cfg, gcm::config::Value &interface):
+    library(find_handler(cfg, interface["handler"].asString())),
+    config(interface),
+    interface_name(interface["name"].asString())
 {}
 
-Interface::~Interface() {
+IntInterface::~IntInterface() {
     // Collect result and correctly join server thread.
     server_task.get();
 }
 
-void Interface::handle(gcm::socket::ConnectedSocket<gcm::socket::AnyIpAddress> client) {
-    library.get("handle")(&client);
+void IntInterface::_start() {
+    server_task = std::async(std::launch::async, &IntInterface::start, this);
 }
 
-void Interface::_start() {
-    server_task = std::async(&Interface::start, &(interfaces.back()), std::launch::async);
-}
+class ClientProcessor {
+public:
+    ClientProcessor(s::ConnectedSocket<s::AnyIpAddress> &&client, Handler *handler):
+        client(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client)),
+        handler(handler)
+    {}
+    ClientProcessor(ClientProcessor &&) = default;
 
-bool Interface::start() {
-    auto server = s::TcpServer{};
-
-    for (auto &listen: config.getAll("listen")) {
-        auto &s = listen.asString();
-        if (is_ipv6(s)) {
-            // V6
-        } else {
-            // V4
+    void operator()() {
+        try {
+            handler->handle(std::move(client));
+        } catch (std::exception &e) {
+            auto &log = l::getLogger("client");
+            ERROR(log) << "Caught exception while executing handler stop function: " << e.what();
+        } catch (...) {
+            auto &log = l::getLogger("client");
+            ERROR(log) << "Caught unknown exception while executing handler stop function.";
         }
-
-
-        server.listen(s::Inet6{"::", 12345});
     }
 
-    server.listen(s::Inet{"0.0.0.0", 12346});
+protected:
+    s::ConnectedSocket<s::AnyIpAddress> client;
+    Handler *handler;
+};
 
+class IntHandler {
+public:
+    IntHandler(gcm::dl::Library &lib, gcm::config::Value &cfg, ServerApi &api):
+        library(lib),
+        handler((Handler *)(library.get<void *, void *>("init")(&api))),
+        pool(gcm::thread::make_pool<ClientProcessor>(cfg.get("MinThreads", 5), cfg.get("MaxThreads", 100)))
+    {}
+
+    ~IntHandler() {
+        pool->stop();
+
+        // Cleanup the module.
+        try {
+            library.get<void, void *>("stop")(handler);
+        } catch (std::exception &e) {
+            auto &log = l::getLogger("client");
+            ERROR(log) << "Caught exception while executing handler stop function: " << e.what();
+        } catch (...) {
+            auto &log = l::getLogger("client");
+            ERROR(log) << "Caught unknown exception while executing handler stop function.";
+        }
+    }
+
+    void operator()(s::ConnectedSocket<s::AnyIpAddress> &&client) {
+        auto &log = l::getLogger("client");
+        auto &addr = client.get_client_address();
+
+        pool->add_work(ClientProcessor(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client), handler));
+    }
+
+protected:
+    gcm::dl::Library &library;
+    Handler *handler;
+    std::shared_ptr<gcm::thread::Pool<ClientProcessor>> pool;
+};
+
+bool IntInterface::start() {
+    auto &log = gcm::logging::getLogger("");
+
+    auto server = s::TcpServer{};
+
+    bool listens = false;
+
+    // Listen on all given interfaces.
+    for (auto &listen: config.getAll("listen")) {
+        auto s = listen->asString();
+
+        auto port = s::util::get_port(s.begin(), s.end());
+        auto ipv4 = s::util::get_ipv4(s.begin(), s.end());
+        auto ipv6 = s::util::get_ipv6(s.begin(), s.end());
+
+        if (port > 0) {
+            if (ipv4.first != s.end()) {
+                server.listen(s::Inet{std::string(ipv4.first, ipv4.second), port});
+                listens = true;
+            } else if (ipv6.first != s.end()) {
+                server.listen(s::Inet6{std::string(ipv6.first, ipv6.second), port});
+                listens = true;
+            }
+        }
+    }
+
+    if (!listens) {
+        ERROR(log) << "You must define at least one listen directive for interface " << interface_name;
+        return false;
+    }
+
+    // Stop server at sigint.
     Signal::at(SIGINT, std::bind(&s::TcpServer::stop, &server));
 
-    Handler handler;
+    ServerApi api;
+
+    IntHandler handler(library, config, api);
     server.serve_forever(handler);
 
     return true;

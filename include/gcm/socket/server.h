@@ -88,7 +88,8 @@ public:
 					select.add(s, AcceptHandler<std::decay_t<T>, Inet, AnyIpAddress>{s, std::forward<T>(handle)}, nullptr, nullptr);
 				}
 
-				select.select();
+				// Each 0.5s, try if there is quit event.
+				select.select(0, 500000);
 			}
 		} catch (Interrupt e) {
 		}

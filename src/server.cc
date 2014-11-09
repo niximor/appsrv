@@ -22,15 +22,16 @@
  */
 
 #include <vector>
-#include <thread>
+#include <chrono>
 
-#include <gcm/socket/server.h>
+#include <unistd.h>
+
 #include <gcm/logging/logging.h>
 #include <gcm/logging/util.h>
 #include <gcm/config/config.h>
 #include <gcm/io/io.h>
-#include <gcm/thread/pool.h>
 #include <gcm/thread/signal.h>
+#include "interface.h"
 
 #include "interface.h"
 
@@ -40,49 +41,25 @@ namespace c = gcm::config;
 
 using namespace gcm::appsrv;
 
-class ClientProcessor {
+class InfiniteLoop {
 public:
-    ClientProcessor(s::ConnectedSocket<s::AnyIpAddress> &&client):
-        client(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client))
+    InfiniteLoop(): quit(false)
     {}
-    ClientProcessor(ClientProcessor &&) = default;
+
+    void stop() {
+        quit = true;
+    }
 
     void operator()() {
-        auto &log = l::getLogger("client");
-        auto &addr = client.get_client_address();
+        gcm::thread::Signal::at(SIGINT, std::bind(&InfiniteLoop::stop, this));
 
-        DEBUG(log) << "Handle client " << addr.get_ip() << ":" << addr.get_port() << ".";
-
-        client << std::string("Hello!\r\n");
-        sleep(5);
-        client << std::string("Bye!\r\n");
-
-        DEBUG(log) << "Client " << addr.get_ip() << ":" << addr.get_port() << " handled.";
+        while (!quit) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
     }
 
 protected:
-    s::ConnectedSocket<s::AnyIpAddress> client;
-};
-
-class Handler {
-public:
-    Handler(): pool(gcm::thread::make_pool<ClientProcessor>(5, 5))
-    {}
-
-    ~Handler() {
-        pool->stop();
-    }
-
-    void operator()(s::ConnectedSocket<s::AnyIpAddress> &&client) {
-        auto &log = l::getLogger("client");
-        auto &addr = client.get_client_address();
-
-        DEBUG(log) << "New connection from " << addr.get_ip() << ":" << addr.get_port() << ".";
-        pool->add_work(ClientProcessor(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client)));
-    }
-
-protected:
-    std::shared_ptr<gcm::thread::Pool<ClientProcessor>> pool;
+    bool quit;
 };
 
 int main(int, char *argv[]) {
@@ -98,13 +75,20 @@ int main(int, char *argv[]) {
 	c::Config cfg("../conf/appsrv.conf");
 	l::util::setup_logging(appname, cfg);
 
-    std::vector<Interface> interfaces;
+    std::vector<IntInterface> interfaces;
 
-    auto &cfg_interfaces = cfg.getAll("interface");
-    for (auto &if: cfg_interfaces) {
-        interfaces.emplace_back(if);
+	auto cfg_interfaces = cfg.getAll("interface");
+    for (auto &interface: cfg_interfaces) {
+        interfaces.emplace_back(cfg, *interface);
         interfaces.back()._start();
     }
 
-    INFO(l::getLogger("")) << "Server quit.";
+    if (interfaces.empty()) {
+        INFO(l::getLogger("")) << "No interfaces configured. Quit.";
+    } else {
+        auto loop = InfiniteLoop();
+        loop();
+
+        INFO(l::getLogger("")) << "Server quit.";
+    }
 }

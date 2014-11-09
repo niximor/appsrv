@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <stdexcept>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <sstream>
 
@@ -71,7 +72,7 @@ public:
         switch (type) {
             case Type::Int: return value.int_value;
             case Type::Double: return value.double_value;
-            case Type::String: atoll(value.string_value.c_str());
+            case Type::String: return atoll(value.string_value.c_str());
             case Type::Null: return 0;
             case Type::Bool: return value.bool_value;
             default:
@@ -189,15 +190,72 @@ public:
         return false;
     }
 
-    template<typename T>
-    T &get(const std::string &index, T &def) {
+    Value *get(const std::string &index) {
         auto &s = asStruct();
         for (auto &item: s) {
             if (item.first == index) {
-                return item.second;
+                return &(item.second);
             }
         }
-        return def;
+        return nullptr;
+    }
+
+    template<typename T>
+    std::enable_if_t<std::is_integral<T>::value, IntType>
+    get(const std::string &index, T def) {
+        auto *s = get(index);
+        if (s == nullptr) {
+            return def;
+        } else {
+            return s->asInt();
+        }
+    }
+
+    template<typename T>
+    std::enable_if_t<std::is_floating_point<T>::value, DoubleType>
+    get(const std::string &index, T def) {
+        auto *s = get(index);
+        if (s == nullptr) {
+            return def;
+        } else {
+            return s->asDouble();
+        }
+    }
+
+    BoolType get(const std::string &index, BoolType def) {
+        auto *s = get(index);
+        if (s == nullptr) {
+            return def;
+        } else {
+            return s->asBool();
+        }
+    }
+
+    StringType get(const std::string &index, StringType def) {
+        auto *s = get(index);
+        if (s == nullptr) {
+            return def;
+        } else {
+            return s->asString();
+        }
+    }
+
+    ArrayType &get(const std::string &index, ArrayType &def) {
+        auto *s = get(index);
+        if (s == nullptr) {
+            return def;
+        } else {
+            return s->asArray();
+        }
+    }
+
+    StructType &get(const std::string &index, StructType &def) {
+        auto *s = get(index);
+        if (s == nullptr) {
+            return def;
+        } else {
+            return s->asStruct();
+        }
     }
 
     auto getAll(const std::string &index) {

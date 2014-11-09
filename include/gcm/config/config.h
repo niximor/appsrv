@@ -59,8 +59,12 @@ public:
     }
 
     template<typename T>
-    T &get(const std::string &index, T &def) {
+    auto get(const std::string &index, T &&def) {
         return val.get(index, def);
+    }
+
+    auto get(const std::string &index, const char *def) {
+        return val.get(index, std::string(def));
     }
 
     auto getAll(const std::string &index) {

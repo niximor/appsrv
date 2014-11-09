@@ -23,31 +23,36 @@
 
 #pragma once
 
-#include <gcm/config/config.h>
-#include <gcm/dl/dl.h>
 #include <gcm/socket/socket.h>
-
-#include <future>
 
 namespace gcm {
 namespace appsrv {
 
-class IntInterface {
-public:
-    IntInterface(gcm::config::Config &cfg, gcm::config::Value &interface);
-    IntInterface(IntInterface &&) = default;
-    ~IntInterface();
+class ServerApi {
 
-    void handle(gcm::socket::ConnectedSocket<gcm::socket::AnyIpAddress> client);
-    void _start();
-    bool start();
-
-protected:
-    gcm::dl::Library library;
-    gcm::config::Value &config;
-    std::future<bool> server_task;
-    std::string interface_name;
 };
 
-} // namespace appsrv
-} // namespace gcm
+/**
+ * Signature of init function of each handler module.
+ * @param api Published server API for the module.
+ * @return Instance of Handler class.
+ */
+using InitSig = void *(*)(ServerApi *);
+
+/**
+ * Signature of stop function of each handler module.
+ * @param handler Instance of Handler class. Module should free memory of the handler.
+ */
+using StopSig = void (*)(void *);
+
+/**
+ * Handler class returned by call to handler's init() method.
+ */
+class Handler {
+public:
+    virtual void handle(gcm::socket::ConnectedSocket<gcm::socket::AnyIpAddress> &&client) = 0;
+    virtual ~Handler();
+};
+
+}
+}

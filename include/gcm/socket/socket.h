@@ -466,6 +466,27 @@ constexpr std::size_t ArraySize(T (&)[size]) {
 	return size;
 }
 
+class binary_flag {
+public:
+	constexpr binary_flag(bool binary): binary(binary)
+	{}
+	constexpr bool is_binary() { return binary; }
+
+protected:
+	bool binary;
+};
+
+constexpr const binary_flag binary(true);
+constexpr const binary_flag ascii(false);
+
+template<typename T>
+struct is_char: std::integral_constant<bool,
+	std::is_same<std::remove_cv_t<std::decay_t<T>>, char>::value ||
+	std::is_same<std::remove_cv_t<std::decay_t<T>>, unsigned char>::value ||
+	std::is_same<std::remove_cv_t<std::decay_t<T>>, signed char>::value ||
+	std::is_same<std::remove_cv_t<std::decay_t<T>>, wchar_t>::value>
+{};
+
 template<typename Address>
 class WritableSocket: public Socket<Address> {
 public:
@@ -473,13 +494,43 @@ public:
 
 	bool eof() { return eof_flag; }
 
+	// Set binary flag.
+	WritableSocket &operator<<(binary_flag binary) {
+		binary_flag = binary.is_binary();
+		return *this;
+	};
+
 	template<typename T>
-	typename std::enable_if<std::is_arithmetic<T>::value, WritableSocket &>::type
+	typename std::enable_if<is_char<T>::value, WritableSocket &>::type
 	operator <<(const T &val) {
-		ssize_t written = ::write(this->fd, dynamic_cast<void *>(&val), sizeof(val));
+		ssize_t written = ::write(this->fd, &val, sizeof(val));
 
 		if (written < 0) {
 			throw SocketException(errno);
+		}
+
+		return *this;
+	}
+
+	template<typename T>
+	typename std::enable_if<std::is_arithmetic<T>::value && !is_char<T>::value, WritableSocket &>::type
+	operator <<(const T &val) {
+		if (binary_flag) {
+			// Write as binary
+			ssize_t written = ::write(this->fd, &val, sizeof(val));
+
+			if (written < 0) {
+				throw SocketException(errno);
+			}
+		} else {
+			// Write as ASCII
+			auto s = std::to_string(val);
+
+			ssize_t written = ::write(this->fd, s.c_str(), s.size());
+
+			if (written < 0) {
+				throw SocketException(errno);
+			}
 		}
 
 		return *this;
@@ -497,11 +548,20 @@ public:
 		return *this;
 	}
 
+	WritableSocket &operator<<(const char *str) {
+		ssize_t written = ::write(this->fd, str, ::strlen(str));
+		if (written < 0) {
+			throw SocketException(errno);
+		}
+
+		return *this;
+	}
+
 	// Read from socket, for arithmetic types
 	template<typename T>
 	typename std::enable_if<std::is_arithmetic<T>::value, WritableSocket &>::type
 	operator >>(T &val) {
-		ssize_t readed = ::read(this->fd, dynamic_cast<void *>(&val), sizeof(val));
+		ssize_t readed = ::read(this->fd, &val, sizeof(val));
 		if (readed < 0) {
 			throw SocketException(errno);
 		}
@@ -512,35 +572,6 @@ public:
 
 		return *this;
 	}
-
-	// Read from socket for arrays
-	template<typename T>
-	typename std::enable_if<std::is_array<T>::value, WritableSocket &>::type
-	operator >>(T val) {
-		ssize_t readed = ::read(this->fd, dynamic_cast<void *>(val), ArraySize(val));
-
-		if (readed < 0) {
-			throw SocketException(errno);
-		}
-
-		if (readed == 0) {
-			eof_flag = true;
-		}
-
-		return *this;
-	}
-
-	// Read from socket for pointers
-	/*template<typename T>
-	std::enable_if<std::is_pointer<T>::value, size_t>::type
-	read(T val, size_t length) {
-		ssize_t readed = ::read(this->fd, dynamic_cast<void *>(val), length);
-		if (readed < 0) {
-			throw SocketError(errno);
-		}
-
-		return readed;
-	}*/
 
 	// Read from socket for strings.
 	template<typename T>
@@ -570,11 +601,12 @@ public:
 	}
 
 protected:
-	WritableSocket(int fd, Address &&addr): Socket<Address>(fd, addr), eof_flag(false) {}
-	WritableSocket(int fd, const Address &addr): Socket<Address>(fd, addr), eof_flag(false) {}
+	WritableSocket(int fd, Address &&addr): Socket<Address>(fd, addr), eof_flag(false), binary_flag(true) {}
+	WritableSocket(int fd, const Address &addr): Socket<Address>(fd, addr), eof_flag(false), binary_flag(true) {}
 
 private:
 	bool eof_flag;
+	bool binary_flag;
 };
 
 /**

@@ -17,37 +17,25 @@
  * with GCM::AppSrv. If not, see http://www.gnu.org/licenses/.
  *
  * @author Michal Kuchta <niximor@gmail.com>
- * @date 2014-10-28
+ * @date 2014-11-02
  *
  */
 
 #pragma once
 
-#include <gcm/config/config.h>
-#include <gcm/dl/dl.h>
-#include <gcm/socket/socket.h>
+#include <string>
 
-#include <future>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 namespace gcm {
-namespace appsrv {
+namespace io {
 
-class IntInterface {
-public:
-    IntInterface(gcm::config::Config &cfg, gcm::config::Value &interface);
-    IntInterface(IntInterface &&) = default;
-    ~IntInterface();
+inline bool exists(const std::string &file) {
+    struct stat buffer;   
+    return (stat(file.c_str(), &buffer) == 0); 
+}
 
-    void handle(gcm::socket::ConnectedSocket<gcm::socket::AnyIpAddress> client);
-    void _start();
-    bool start();
-
-protected:
-    gcm::dl::Library library;
-    gcm::config::Value &config;
-    std::future<bool> server_task;
-    std::string interface_name;
-};
-
-} // namespace appsrv
+} // namespace io
 } // namespace gcm

@@ -1,8 +1,9 @@
 CXX := g++-4.9
-CXXFLAGS := -std=c++14 -Wall -Wextra -pedantic-errors -g -ggdb3 -gdwarf-2 -O2
+CXXFLAGS := -std=c++14 -Wall -Wextra -pedantic-errors -g -ggdb3 -gdwarf-2 -O2 -fno-strict-aliasing -fPIC
 CXXFLAGS += -I../include/
 CXXFLAGS += $(CXXEF)
 LDFLAGS := -pthread
+LDFLAGS += -rdynamic
 LDFLAGS += -ldl
 
 SOURCES := $(shell find . -name '*.cc')
@@ -20,7 +21,7 @@ all: build
 build: $(OBJS) $(APP) $(HANDLERS)
 
 $(APP): $(APP_OBJS)
-	$(strip $(LINK.cpp) $^ -o $@)
+	$(strip $(CXX) $(CXXFLAGS) $^ $(LDFLAGS) -o $@)
 
 $(foreach file,$(DEPS),$(eval -include $(file)))
 
