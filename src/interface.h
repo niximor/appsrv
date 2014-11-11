@@ -47,6 +47,7 @@ protected:
     gcm::config::Value &config;
     std::future<bool> server_task;
     std::string interface_name;
+    gcm::config::Config &cfgfile;
 };
 
 } // namespace appsrv

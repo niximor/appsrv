@@ -59,7 +59,8 @@ std::string find_handler(gcm::config::Config &cfg, std::string name, bool test_d
 IntInterface::IntInterface(gcm::config::Config &cfg, gcm::config::Value &interface):
     library(find_handler(cfg, interface["handler"].asString())),
     config(interface),
-    interface_name(interface["name"].asString())
+    interface_name(interface["name"].asString()),
+    cfgfile(cfg)
 {}
 
 IntInterface::~IntInterface() {
@@ -73,27 +74,32 @@ void IntInterface::_start() {
 
 class ClientProcessor {
 public:
-    ClientProcessor(s::ConnectedSocket<s::AnyIpAddress> &&client, Handler *handler):
+    ClientProcessor(s::ConnectedSocket<s::AnyIpAddress> &&client, Handler *handler, Stats &stats):
         client(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client)),
-        handler(handler)
+        handler(handler),
+        stats(stats)
     {}
     ClientProcessor(ClientProcessor &&) = default;
 
     void operator()() {
         try {
             handler->handle(std::move(client));
+            ++stats.req_handled;
         } catch (std::exception &e) {
             auto &log = l::getLogger("client");
             ERROR(log) << "Caught exception while executing handler stop function: " << e.what();
+            ++stats.req_error;
         } catch (...) {
             auto &log = l::getLogger("client");
             ERROR(log) << "Caught unknown exception while executing handler stop function.";
+            ++stats.req_error;
         }
     }
 
 protected:
     s::ConnectedSocket<s::AnyIpAddress> client;
     Handler *handler;
+    Stats &stats;
 };
 
 class IntHandler {
@@ -101,8 +107,13 @@ public:
     IntHandler(gcm::dl::Library &lib, gcm::config::Value &cfg, ServerApi &api):
         library(lib),
         handler((Handler *)(library.get<void *, void *>("init")(&api))),
-        pool(gcm::thread::make_pool<ClientProcessor>(cfg.get("MinThreads", 5), cfg.get("MaxThreads", 100)))
-    {}
+        pool(gcm::thread::make_pool<ClientProcessor>(cfg.get("MinThreads", 5), cfg.get("MaxThreads", 100))),
+        name(cfg["name"].asString()),
+        handler_stats(api.handler_stats)
+    {
+        auto &log = l::getLogger(name);
+        INFO(log) << "Handler " << name << " initialized successfully.";
+    }
 
     ~IntHandler() {
         pool->stop();
@@ -111,25 +122,29 @@ public:
         try {
             library.get<void, void *>("stop")(handler);
         } catch (std::exception &e) {
-            auto &log = l::getLogger("client");
+            auto &log = l::getLogger(name);
             ERROR(log) << "Caught exception while executing handler stop function: " << e.what();
         } catch (...) {
-            auto &log = l::getLogger("client");
+            auto &log = l::getLogger(name);
             ERROR(log) << "Caught unknown exception while executing handler stop function.";
         }
     }
 
     void operator()(s::ConnectedSocket<s::AnyIpAddress> &&client) {
-        auto &log = l::getLogger("client");
-        auto &addr = client.get_client_address();
-
-        pool->add_work(ClientProcessor(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client), handler));
+        ++handler_stats.req_received;
+        pool->add_work(ClientProcessor(
+            std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client),
+            handler,
+            handler_stats
+        ));
     }
 
 protected:
     gcm::dl::Library &library;
     Handler *handler;
     std::shared_ptr<gcm::thread::Pool<ClientProcessor>> pool;
+    std::string name;
+    Stats &handler_stats;
 };
 
 bool IntInterface::start() {
@@ -163,10 +178,12 @@ bool IntInterface::start() {
         return false;
     }
 
+    Stats handler_stats;
+
     // Stop server at sigint.
     Signal::at(SIGINT, std::bind(&s::TcpServer::stop, &server));
 
-    ServerApi api;
+    ServerApi api{cfgfile, handler_stats, config["name"].asString()};
 
     IntHandler handler(library, config, api);
     server.serve_forever(handler);

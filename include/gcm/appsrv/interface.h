@@ -24,12 +24,37 @@
 #pragma once
 
 #include <gcm/socket/socket.h>
+#include <gcm/config/config.h>
 
 namespace gcm {
 namespace appsrv {
 
-class ServerApi {
+class Stats {
+public:
+    Stats(): req_received(0), req_handled(0), req_error(0)
+    {}
 
+    Stats(Stats &&) = default;
+    Stats(const Stats &) = delete;
+
+    uint64_t req_received;
+    uint64_t req_handled;
+    uint64_t req_error;
+};
+
+class ServerApi {
+public:
+    ServerApi(config::Config &config, Stats &handler_stats, const std::string &handler_name):
+        config(config),
+        handler_stats(handler_stats),
+        handler_name(handler_name)
+    {}
+    ServerApi(ServerApi &&) = default;
+    ServerApi(const ServerApi &) = default;
+
+    config::Config &config;
+    Stats &handler_stats;
+    const std::string &handler_name;
 };
 
 /**

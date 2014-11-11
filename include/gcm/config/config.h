@@ -50,6 +50,9 @@ public:
         }
     }
 
+    Config(Config &&) = default;
+    Config(const Config &) = default;
+
     Value &operator[](const std::string &index) {
         return val[index];
     }
