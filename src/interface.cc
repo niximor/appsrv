@@ -72,38 +72,29 @@ void IntInterface::_start() {
     server_task = std::async(std::launch::async, &IntInterface::start, this);
 }
 
+class IntHandler;
+
 class ClientProcessor {
 public:
-    ClientProcessor(s::ConnectedSocket<s::AnyIpAddress> &&client, Handler *handler, Stats &stats):
+    ClientProcessor(s::ConnectedSocket<s::AnyIpAddress> &&client, Handler *handler, IntHandler &int_handler):
         client(std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client)),
         handler(handler),
-        stats(stats)
+        int_handler(int_handler)
     {}
     ClientProcessor(ClientProcessor &&) = default;
 
-    void operator()() {
-        try {
-            handler->handle(std::move(client));
-            ++stats.req_handled;
-        } catch (std::exception &e) {
-            auto &log = l::getLogger("client");
-            ERROR(log) << "Caught exception while executing handler stop function: " << e.what();
-            ++stats.req_error;
-        } catch (...) {
-            auto &log = l::getLogger("client");
-            ERROR(log) << "Caught unknown exception while executing handler stop function.";
-            ++stats.req_error;
-        }
-    }
+    void operator()();
 
 protected:
     s::ConnectedSocket<s::AnyIpAddress> client;
     Handler *handler;
-    Stats &stats;
+    IntHandler &int_handler;
 };
 
 class IntHandler {
 public:
+    friend class ClientProcessor;
+
     IntHandler(gcm::dl::Library &lib, gcm::config::Value &cfg, ServerApi &api):
         library(lib),
         handler((Handler *)(library.get<void *, void *>("init")(&api))),
@@ -135,7 +126,7 @@ public:
         pool->add_work(ClientProcessor(
             std::forward<s::ConnectedSocket<s::AnyIpAddress>>(client),
             handler,
-            handler_stats
+            *this
         ));
     }
 
@@ -189,4 +180,19 @@ bool IntInterface::start() {
     server.serve_forever(handler);
 
     return true;
+}
+
+void ClientProcessor::operator()() {
+    try {
+        handler->handle(std::move(client));
+        ++int_handler.handler_stats.req_handled;
+    } catch (std::exception &e) {
+        auto &log = l::getLogger(int_handler.name);
+        ERROR(log) << "Caught exception while processing connection: " << e.what();
+        ++int_handler.handler_stats.req_error;
+    } catch (...) {
+        auto &log = l::getLogger(int_handler.name);
+        ERROR(log) << "Caught unknown exception while processing connection.";
+        ++int_handler.handler_stats.req_error;
+    }
 }

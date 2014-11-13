@@ -115,6 +115,26 @@ public:
         stream << (std::string)(*this);
     }
 
+    const std::string operator[](const std::string &index) const {
+        for (auto &header: (*this)) {
+            if (header.first == index) {
+                return header.second;
+            }
+        }
+
+        return "";
+    }
+
+    bool has_header(const std::string &index) const {
+        for (auto &header: (*this)) {
+            if (header.first == index) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     operator std::string() {
         std::stringstream ss;
 
@@ -154,6 +174,12 @@ public:
 
     void set_minor(int new_minor) {
         min = new_minor;
+    }
+
+    int compare_to(int o_maj, int o_min) {
+        if (maj == o_maj && min == o_min) return 0;
+        else if (maj < o_maj || (maj == o_maj && min < o_min)) return -1;
+        else return 1;
     }
 
     bool operator==(const HttpVersion &other) {
@@ -217,6 +243,13 @@ public:
     template<typename T>
     void write_headers(T &stream) {
         if (!headers_written) {
+            if (version.compare_to(1, 1) >= 0) {
+                // Connection header.
+                if (!has_header("Content-Length")) {
+                    set_header("Connection", "Close");
+                }
+            }
+
             stream << "HTTP/" << version.get_major() << '.' << version.get_minor() << ' ' << status << ' ' << get_status_message() << CrLf;
             headers.write(stream);
             headers_written = true;
@@ -301,6 +334,14 @@ public:
         return version;
     }
 
+    const std::string operator[](const std::string &index) const {
+        return get_headers()[index];
+    }
+
+    bool has_header(const std::string &index) const {
+        return get_headers().has_header(index);
+    }
+
 protected:
     HeaderSet headers;
     int status;
@@ -370,7 +411,28 @@ public:
 
     template<typename T>
     HttpResponse<T> get_response(T &&stream) {
-        return HttpResponse<T>{*this, std::forward<T>(stream)};
+        auto resp = HttpResponse<T>{*this, std::forward<T>(stream)};
+
+        resp.set_header("Server", "GCM::AppSrv");
+
+        // HTTP/1.1 supports keep-alive connections.
+        if (get_version().compare_to(1, 1) >= 0) {
+            if (!has_header("Content-Length")) {
+                resp.set_header("Connection", "close");
+            } else {
+                resp.set_header("Connection", "keep-alive");
+            }
+        }
+
+        return resp;
+    }
+
+    std::string operator[](const std::string &index) const {
+        return get_headers()[index];
+    }
+
+    bool has_header(const std::string &index) const {
+        return get_headers().has_header(index);
     }
 
 protected:

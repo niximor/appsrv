@@ -40,6 +40,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <signal.h>
 
 // TODO: What about other systems?
 #include <linux/un.h>
@@ -494,6 +495,33 @@ public:
 
 	bool eof() { return eof_flag; }
 
+	ssize_t write(void *val, size_t size) {
+		sigset_t sigpipe_mask;
+		sigemptyset(&sigpipe_mask);
+		sigaddset(&sigpipe_mask, SIGPIPE);
+		sigset_t saved_mask;
+
+		// TODO: Some error checking would be fine.
+		pthread_sigmask(SIG_BLOCK, &sigpipe_mask, &saved_mask);
+
+		ssize_t written = ::write(this->fd, val, size);
+		int err = 0;
+		if (written < 0) {
+			err = errno;
+		}
+		
+		struct timespec zerotime = {0, 0};
+		sigtimedwait(&sigpipe_mask, 0, &zerotime);
+
+		pthread_sigmask(SIG_SETMASK, &saved_mask, 0);
+
+		if (written < 0) {
+			throw SocketException(err);
+		}
+
+		return written;
+	}
+
 	// Set binary flag.
 	WritableSocket &operator<<(binary_flag binary) {
 		binary_flag = binary.is_binary();
@@ -503,12 +531,7 @@ public:
 	template<typename T>
 	typename std::enable_if<is_char<T>::value, WritableSocket &>::type
 	operator <<(const T &val) {
-		ssize_t written = ::write(this->fd, &val, sizeof(val));
-
-		if (written < 0) {
-			throw SocketException(errno);
-		}
-
+		write((void *)&val, sizeof(val));
 		return *this;
 	}
 
@@ -517,20 +540,11 @@ public:
 	operator <<(const T &val) {
 		if (binary_flag) {
 			// Write as binary
-			ssize_t written = ::write(this->fd, &val, sizeof(val));
-
-			if (written < 0) {
-				throw SocketException(errno);
-			}
+			write((void *)&val, sizeof(val));
 		} else {
 			// Write as ASCII
 			auto s = std::to_string(val);
-
-			ssize_t written = ::write(this->fd, s.c_str(), s.size());
-
-			if (written < 0) {
-				throw SocketException(errno);
-			}
+			write((void *)s.c_str(), s.size());
 		}
 
 		return *this;
@@ -539,20 +553,13 @@ public:
 	template<typename T>
 	WritableSocket &operator <<(const std::basic_string<T> &val) {
 		using s = std::basic_string<T>;
-		ssize_t written = ::write(this->fd, val.c_str(), val.size() * sizeof(typename s::value_type));
-
-		if (written < 0) {
-			throw SocketException(errno);
-		}
+		write((void *)val.c_str(), val.size() * sizeof(typename s::value_type));
 
 		return *this;
 	}
 
 	WritableSocket &operator<<(const char *str) {
-		ssize_t written = ::write(this->fd, str, ::strlen(str));
-		if (written < 0) {
-			throw SocketException(errno);
-		}
+		write((void *)str, ::strlen(str));
 
 		return *this;
 	}
