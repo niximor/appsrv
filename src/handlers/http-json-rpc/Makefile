@@ -1,4 +1,4 @@
 OBJS = $(shell find . -iname '*.o')
 
-http.so: $(OBJS)
+http-json-rpc.so: $(OBJS)
 	$(strip $(LINK.cpp) -shared $^ -o $@)
