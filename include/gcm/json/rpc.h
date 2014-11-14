@@ -40,26 +40,63 @@ using MethodRegistry = std::map<std::string, std::function<Method>>;
 
 class RpcException: public Exception {
 public:
-    RpcException(int code, std::string message): Exception(message), code(code)
+    RpcException(std::string message):
+        Exception(message), code(-32603), request_id(make_null())
+    {}
+
+    RpcException(int code, std::string message):
+        Exception(message), code(code), request_id(make_null())
+    {}
+
+    RpcException(std::shared_ptr<Value> request_id, int code, std::string message):
+        Exception(message), code(code), request_id(request_id)
+    {}
+
+    RpcException(std::shared_ptr<Value> request_id, std::string message):
+        Exception(message), code(-32603), request_id(request_id)
     {}
 
     int get_code() const {
         return code;
     }
 
+    std::shared_ptr<Value> to_json(bool full_resp = true) {
+        auto obj = Object();
+        obj["jsonrpc"] = make_string("2.0");
+        obj["id"] = request_id;
+
+        auto &err = to<Object>(obj["error"] = make_object());
+        err["code"] = make_int(code);
+        err["message"] = make_string(this->what());
+
+        if (full_resp) {
+            return std::make_shared<Object>(obj);
+        } else {
+            return std::make_shared<Object>(err);
+        }
+    }
+
 protected:
     int code;
+    std::shared_ptr<Value> request_id;
 };
 
 class MethodNotFound: public RpcException {
 public:
     MethodNotFound(std::string name): RpcException(-32601, "Method " + name + " not found.")
     {}
+
+    MethodNotFound(std::shared_ptr<Value> request_id, std::string name):
+        RpcException(request_id, -32601, "Method " + name + " not found.")
+    {}
 };
 
 class Promise {
 public:
     friend class MethodProcessor;
+
+    Promise(): notify_done(nullptr), has_result(false)
+    {}
 
     void wait() {
         while (!has_result) {
@@ -77,6 +114,9 @@ public:
         return result;
     }
 
+public:
+    std::condition_variable *notify_done;
+
 protected:
     std::condition_variable cb;
     std::mutex mutex;
@@ -87,7 +127,7 @@ protected:
 
 class MethodProcessor {
 public:
-    MethodProcessor(MethodRegistry &registry, std::shared_ptr<Promise> promise, int request_id, std::string &&method, Array &&params):
+    MethodProcessor(MethodRegistry &registry, std::shared_ptr<Promise> promise, std::shared_ptr<Value> request_id, std::string &&method, Array &&params):
         registry(registry),
         promise(promise),
         request_id(request_id),
@@ -98,40 +138,43 @@ public:
     void operator()() {
         auto response = Object();
         response["jsonrpc"] = make_string("2.0");
+        response["id"] = request_id;
 
         try {
-            // For now, no method exists.
             auto it = registry.find(method);
             if (it == registry.end()) {
-                throw MethodNotFound(method);
+                throw MethodNotFound(request_id, method);
             }
 
             auto &result = response["result"];
             result = it->second(params);
         } catch (RpcException &e) {
-            auto &error = to<Object>(response["error"] = make_object());
-            error["code"] = make_int(e.get_code());
-            error["message"] = make_string(e.what());
+            response["error"] = e.to_json(false);
         } catch (std::exception &e) {
             auto &error = to<Object>(response["error"] = make_object());
-            error["code"] = make_int(-32000);
+            error["code"] = make_int(-32603);
             error["message"] = make_string(e.what());
         } catch (...) {
             auto &error = to<Object>(response["error"] = make_object());
-            error["code"] = make_int(-32000);
+            error["code"] = make_int(-32603);
             error["message"] = make_string("Server error.");
         }
         
         // Notify of job done.
         promise->result = std::make_shared<Object>(response);
         promise->has_result = true;
+
+        if (promise->notify_done != nullptr) {
+            promise->notify_done->notify_one();
+        }
+
         promise->cb.notify_one();
     }
 
 protected:
     MethodRegistry &registry;
     std::shared_ptr<Promise> promise;
-    int request_id;
+    std::shared_ptr<Value> request_id;
     std::string method;
     Array params;
 };
@@ -143,7 +186,7 @@ public:
         register_method("system.listMethods", std::bind(&Rpc::list_methods, this, _1));
     }
 
-    std::shared_ptr<Promise> add_work(int request_id, std::string &&method, Array &&params) {
+    std::shared_ptr<Promise> add_work(std::shared_ptr<Value> request_id, std::string &&method, Array &&params) {
         auto p = std::make_shared<Promise>();
 
         pool.add_work(MethodProcessor(
@@ -174,6 +217,37 @@ protected:
     std::map<std::string, std::function<Method>> methods;
     gcm::thread::Pool<MethodProcessor> pool;
 };
+
+template<typename PromiseDone>
+inline void wait_all(std::vector<std::shared_ptr<Promise>> promises, PromiseDone done) {
+    std::mutex m;
+    std::condition_variable cv;
+
+    for (auto &p: promises) {
+        p->notify_done = &cv;
+    }
+
+    while (!promises.empty()) {
+        bool changed = true;
+        while (changed) {
+            changed = false;
+
+            for (auto it = promises.begin(); it != promises.end(); ++it) {
+                if ((*it)->try_wait()) {
+                    // Promise has work done.
+                    done(**it);
+
+                    promises.erase(it);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        std::unique_lock<std::mutex> lock(m);
+        cv.wait(lock);
+    }
+}
 
 } // namespace rpc
 } // namespace json

@@ -28,6 +28,8 @@
 #include <sstream>
 #include <memory>
 
+#include <cstdlib>
+
 #include "message.h"
 #include "formatter.h"
 
@@ -116,7 +118,7 @@ class StdErrHandler: public Handler {
 public:
 	StdErrHandler(Formatter &&formatter):
 		Handler(std::forward<Formatter>(formatter)),
-		stream(std::cerr)
+		stream(std::cerr), color(false)
 	{}
 
 	virtual void write(Message &msg) {
@@ -134,6 +136,7 @@ public:
 
 protected:
 	std::ostream &stream;
+    bool color;
 };
 
 } // namespace logging

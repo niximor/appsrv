@@ -241,6 +241,10 @@ T &to(std::shared_ptr<Value> &value) {
     return to<T>(*value);
 }
 
+inline std::shared_ptr<Value> make_null() {
+    return std::make_shared<Value>();
+}
+
 inline std::shared_ptr<Value> make_object() {
     return std::make_shared<Object>();
 }

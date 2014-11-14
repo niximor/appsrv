@@ -42,11 +42,10 @@
 #include <arpa/inet.h>
 #include <signal.h>
 
+#include <gcm/logging/logging.h>
+
 // TODO: What about other systems?
 #include <linux/un.h>
-
-// FOR DEBUG:
-#include <iostream>
 
 namespace gcm {
 namespace socket {
@@ -519,7 +518,14 @@ public:
 			throw SocketException(err);
 		}
 
+		auto &log = logging::getLogger("GCM.Socket");
+		DEBUG(log) << "<< " << std::string((char *)val, size);
+
 		return written;
+	}
+
+	ssize_t read(void *val, size_t size) {
+		return ::read(this->fd, val, size);
 	}
 
 	// Set binary flag.
@@ -568,7 +574,7 @@ public:
 	template<typename T>
 	typename std::enable_if<std::is_arithmetic<T>::value, WritableSocket &>::type
 	operator >>(T &val) {
-		ssize_t readed = ::read(this->fd, &val, sizeof(val));
+		ssize_t readed = read((void *)&val, sizeof(val));
 		if (readed < 0) {
 			throw SocketException(errno);
 		}
@@ -593,7 +599,7 @@ public:
 		dt.reserve(capacity);
 
 		// Need to convert capacity to bytes and read specified number of bytes.
-		ssize_t received_size = ::read(this->fd, &dt[0], capacity * sizeof(typename s::value_type));
+		ssize_t received_size = read((void *)&dt[0], capacity * sizeof(typename s::value_type));
 		if (received_size < 0) {
 			throw SocketException(errno);
 		}

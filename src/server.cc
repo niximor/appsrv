@@ -62,6 +62,7 @@ protected:
     bool quit;
 };
 
+
 int main(int, char *argv[]) {
 	std::string appname{gcm::io::basename(argv[0])};
 	l::util::setup_logging(appname, {
@@ -92,3 +93,36 @@ int main(int, char *argv[]) {
         INFO(l::getLogger("")) << "Server quit.";
     }
 }
+
+
+/*
+#include <gcm/json/parser.h>
+
+int main(void) {
+    std::string in("{\"params\": [], \"jsonrpc\": \"2.0\", \"method\": \"system.listMethods\", \"id\": \"4ee9c7a4-a341-4982-b8b3-7a2ad53a0bf5\"}");
+    auto it_begin = in.begin();
+    auto it_end = in.end();
+    auto val = gcm::json::parse(it_begin, it_end);
+
+    if (it_begin != it_end) {
+        std::cout << "Unable to parse whole input. Remains: " << std::string(it_begin, it_end) << std::endl;
+    }
+
+    std::cout << "Parsed: " << val->to_string() << std::endl;
+}
+*/
+
+/*
+#include <gcm/io/terminfo.h>
+
+int main(void) {
+    using namespace gcm::io;
+    TermInfo ti;
+    std::cout << "set_a_foreground: " << ti.tohex(ti.getstring(TermInfo::Strings::set_a_foreground)) << std::endl;
+    std::cout << "set_foreground: " << ti.tohex(ti.getstring(TermInfo::Strings::set_foreground)) << std::endl;
+
+    for (int i = 1; i <= 256; ++i) {
+        std::cout << ti.eval(ti.getstring(TermInfo::Strings::set_a_foreground), i) << "test ";
+    }
+}
+*/

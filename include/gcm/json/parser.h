@@ -32,70 +32,180 @@
 namespace gcm {
 namespace json {
 
+class ParseException: public Exception {
+public:
+    ParseException(std::string message): Exception(message)
+    {}
+};
+
+struct parser {
+    parser():
+        value(make_null()), current(value), stop(false)
+    {}
+
+    void level_up() {
+        if (!parents.empty()) {
+            current = parents.back();
+            parents.pop_back();
+        } else {
+            stop = true;
+        }
+    }
+
+    void test_stop() {
+        if (stop) {
+            throw ParseException("Unexpected input after JSON value.");
+        }
+    }
+
+    template<typename I>
+    void null_value(I, I) {
+        test_stop();
+
+        current = make_null();
+        level_up();
+    }
+
+    template<typename I>
+    void true_value(I, I) {
+        test_stop();
+
+        current = make_bool(true);
+        level_up();
+    }
+
+    template<typename I>
+    void false_value(I, I) {
+        test_stop();
+
+        current = make_bool(false);
+        level_up();
+    }
+
+    template<typename I>
+    void int_value(I begin, I end) {
+        test_stop();
+
+        current = make_int(std::stoi(std::string(begin, end)));
+        level_up();
+    }
+
+    template<typename I>
+    void double_value(I begin, I end) {
+        test_stop();
+
+        current = make_double(std::stod(std::string(begin, end)));
+        level_up();
+    }
+
+    template<typename I>
+    void string_value(I begin, I end) {
+        test_stop();
+
+        current = make_string(std::string(begin, end));
+        level_up();
+    }
+
+    template<typename I>
+    void array_begin(I, I) {
+        test_stop();
+
+        current = make_array();
+    }
+
+    template<typename I>
+    void new_array_item(I, I) {
+        test_stop();
+
+        auto &arr = to<Array>(current);
+        arr.push_back(make_null());
+        parents.push_back(current);
+        current = arr.back();
+    }
+
+    template<typename I>
+    void array_end(I, I) {
+        test_stop();
+
+        level_up();
+    }
+
+    template<typename I>
+    void obj_begin(I, I) {
+        test_stop();
+
+        current = make_object();
+    }
+
+    template<typename I>
+    void new_obj_item(I begin, I end) {
+        test_stop();
+
+        auto &obj = to<Object>(current);
+        parents.push_back(current);
+        current = obj[std::string(begin, end)] = make_null();
+    }
+
+    template<typename I>
+    void obj_end(I, I) {
+        test_stop();
+
+        level_up();
+    }
+
+    std::shared_ptr<Value> value;
+    std::shared_ptr<Value> current;
+    std::vector<std::shared_ptr<Value>> parents;
+    bool stop;
+};
+
 template<typename I>
-std::shared_ptr<Value> parse(I begin, I end) {
+std::shared_ptr<Value> parse(I &begin, I &end) {
     using namespace gcm::parser;
     using namespace std::placeholders;
-
-    struct parser {
-        using ParentPair = std::pair<ParentPair *, std::shared_ptr<Value>>;
-
-        parser(): value(std::make_shared<Value>()), current(std::make_pair(nullptr, value.get()))
-        {}
-
-        template<typename I>
-        void null_value(I, I) {
-            current.second = Value();
-            current = *current.first;
-        }
-
-        template<typename I>
-        void true_value(I, I) {
-            current.second = Bool(true);
-            current = *current.first;
-        }
-
-        template<typename I>
-        void false_value(I, I) {
-            current.second = Bool(false);
-            current = *current.first;
-        }
-
-        template<typename I>
-        void int_value(I begin, I end) {
-            current.second = Int(std::stoi(std::string(begin, end)));
-            current = *current.first;
-        }
-
-        template<typename I>
-        void array_begin(I, I) {
-            current.second = Array();
-            // TODO: This won't work, need to think of a better way... probably some wrapper object
-            // that will hold current item's parent.
-            current = std::make_pair(current, current.second);
-        }
-
-        std::shared_ptr<Value> value;
-        ParentPair current;
-    };
+    
     parser p;
 
     rule<I> value;
 
-    auto v_null = "null"_r >> std::bind(&parser::null_value, p, _1, _2);
-    auto v_bool = "true"_r >> std::bind(&parser::true_value, p, _1, _2) | "false"_r >> std::bind(&parser::false_value, p, _1, _2);;
-    auto v_int = (-('+'_r | '-'_r) & +digit()) >> std::bind(&parser::int_value, p, _1, _2);
-    auto value_in_array = !']'_r >> std::bind(&parser::new_array_item, p, _1, _2) & value;
+    auto _ws = *space();
+
+    auto _char = *((any_rule() - '"'_r - '\\'_r ) | ('\\'_r & ('"'_r | '\\'_r | '/'_r | 'b'_r | 'f'_r | 'n'_r | 'r'_r | 't'_r | ('u' & iteration_rule(xdigit(), 4, 4)))));
+
+    auto v_null = "null"_r >> std::bind(&parser::null_value<I>, &p, _1, _2);
+    auto v_bool = "true"_r >> std::bind(&parser::true_value<I>, &p, _1, _2) | "false"_r >> std::bind(&parser::false_value<I>, &p, _1, _2);
+    auto v_int = (-('+'_r | '-'_r) & +digit()) >> std::bind(&parser::int_value<I>, &p, _1, _2);
+
+    auto frac = '.'_r & *digit();
+    auto _e = "e+"_r | "e-"_r | 'e'_r | "E+"_r | "E-"_r | "E"_r;
+    auto _exp = 'e'_r & *digit();
+    auto v_double = (v_int & (frac | _exp | (frac & _exp))) >> std::bind(&parser::double_value<I>, &p, _1, _2);
+
+    auto v_string = '"'_r & _char >> std::bind(&parser::string_value<I>, &p, _1, _2) & '"'_r;
+
+    auto value_in_array = !']'_r >> std::bind(&parser::new_array_item<I>, &p, _1, _2) & value;
     auto v_array =
-        '['_r >> std::bind(&parser::array_begin, p, _1, _2)
-        & *(value_in_array & ','_r)
-        & -value_in_array
-        & ']'_r >> std::bind(&parser::array_end, p, _1, _2);
+        '['_r >> std::bind(&parser::array_begin<I>, &p, _1, _2)
+        & *(_ws & value_in_array & _ws & ','_r)
+        & _ws & -value_in_array
+        & _ws & ']'_r >> std::bind(&parser::array_end<I>, &p, _1, _2);
+
+    auto identifier = '"'_r & _char >> std::bind(&parser::new_obj_item<I>, &p, _1, _2) & '"'_r;
+    auto value_in_obj = identifier & _ws & ':'_r & _ws & value;
+    auto v_object =
+        '{'_r >> std::bind(&parser::obj_begin<I>, &p, _1, _2)
+        & *(_ws & value_in_obj & _ws & ','_r)
+        & _ws & -value_in_obj
+        & _ws & '}'_r >> std::bind(&parser::obj_end<I>, &p, _1, _2);
 
     value = v_null | v_bool | v_double | v_int | v_string | v_array | v_object;
 
-    if (value(begin, end)) {
+    auto document = _ws & value & _ws;
+
+    if (document(begin, end)) {
         return p.value;
+    } else {
+        return nullptr;
     }
 }
 
