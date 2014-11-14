@@ -28,6 +28,7 @@
 #include <functional>
 
 #include <gcm/thread/pool.h>
+#include <gcm/logging/logging.h>
 
 #include "json.h"
 
@@ -136,6 +137,8 @@ public:
     {}
 
     void operator()() {
+        auto &log = gcm::logging::getLogger("json-rpc");
+
         auto response = Object();
         response["jsonrpc"] = make_string("2.0");
         response["id"] = request_id;
@@ -146,8 +149,12 @@ public:
                 throw MethodNotFound(request_id, method);
             }
 
+            DEBUG(log) << "Calling method " << method << ".";
+
             auto &result = response["result"];
             result = it->second(params);
+
+            DEBUG(log) << "Method " << method << " succeeded.";
         } catch (RpcException &e) {
             response["error"] = e.to_json(false);
         } catch (std::exception &e) {

@@ -61,6 +61,7 @@ public:
                 I begin1 = begin;
                 I end1 = end;
                 while ((call = gcm::json::parse(begin1, end1)) != nullptr) {
+                    DEBUG(log) << "Parsed: " << call->to_string();
                     end1 = end;
 
                     auto &obj = gcm::json::to<gcm::json::Object>(call);
