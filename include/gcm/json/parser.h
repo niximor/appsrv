@@ -39,14 +39,20 @@ public:
 };
 
 struct parser {
+    struct Item {
+        std::shared_ptr<Value> *value;
+        std::shared_ptr<Item> parent;
+    };
+
     parser():
-        current(make_null()), stop(false)
-    {}
+        current(std::make_shared<Item>()), stop(false)
+    {
+        current->value = &value;
+    }
 
     void level_up() {
-        if (!parents.empty()) {
-            current = parents.back();
-            parents.pop_back();
+        if (current->parent) {
+            current = current->parent;
         } else {
             stop = true;
         }
@@ -62,7 +68,7 @@ struct parser {
     void null_value(I, I) {
         test_stop();
         std::cout << "null value" << std::endl;
-        *current = Value();
+        *(current->value) = make_null();
         level_up();
     }
 
@@ -70,7 +76,7 @@ struct parser {
     void true_value(I, I) {
         test_stop();
         std::cout << "true value" << std::endl;
-        *current = Bool(true);
+        *(current->value) = make_bool(true);
         level_up();
     }
 
@@ -78,7 +84,7 @@ struct parser {
     void false_value(I, I) {
         test_stop();
         std::cout << "false value" << std::endl;
-        *current = Bool(false);
+        *(current->value) = make_bool(false);
         level_up();
     }
 
@@ -86,7 +92,7 @@ struct parser {
     void int_value(I begin, I end) {
         test_stop();
         std::cout << "int value" << std::endl;
-        *current = Int(std::stoi(std::string(begin, end)));
+        *(current->value) = make_int(std::stoi(std::string(begin, end)));
         level_up();
     }
 
@@ -94,7 +100,7 @@ struct parser {
     void double_value(I begin, I end) {
         test_stop();
         std::cout << "double value" << std::endl;
-        *current = Double(std::stod(std::string(begin, end)));
+        *(current->value) = make_double(std::stod(std::string(begin, end)));
         level_up();
     }
 
@@ -102,7 +108,7 @@ struct parser {
     void string_value(I begin, I end) {
         test_stop();
         std::cout << "string value" << std::endl;
-        *current = String(std::string(begin, end));
+        *(current->value) = make_string(std::string(begin, end));
         level_up();
     }
 
@@ -110,23 +116,26 @@ struct parser {
     void array_begin(I, I) {
         test_stop();
         std::cout << "array begin" << std::endl;
-        *current = Array();
+        *(current->value) = make_array();
     }
 
     template<typename I>
     void new_array_item(I, I) {
         test_stop();
         std::cout << "array item" << std::endl;
-        auto &arr = to<Array>(current);
+        auto &arr = to<Array>(*(current->value));
         arr.push_back(make_null());
-        parents.push_back(current);
-        current = arr.back();
+
+        auto item = std::make_shared<Item>();
+        item->parent = current;
+        item->value = &arr.back();
+        current = item;
     }
 
     template<typename I>
     void array_end(I, I) {
         test_stop();
-        std::cout << "array begin" << std::endl;
+        std::cout << "array end" << std::endl;
         level_up();
     }
 
@@ -134,16 +143,20 @@ struct parser {
     void obj_begin(I, I) {
         test_stop();
         std::cout << "obj begin" << std::endl;
-        *current = Object();
+        *(current->value) = make_object();
     }
 
     template<typename I>
     void new_obj_item(I begin, I end) {
         test_stop();
-        std::cout << "new obj item" << std::endl;
-        auto &obj = to<Object>(current);
-        parents.push_back(current);
-        current = obj[std::string(begin, end)] = make_null();
+        std::cout << "new obj item: " << std::string(begin, end) << std::endl;
+        auto &obj = to<Object>(*(current->value));
+        
+        auto item = std::make_shared<Item>();
+        item->value = &(obj[std::string(begin, end)] = make_null());
+        item->parent = current;
+
+        current = item;
     }
 
     template<typename I>
@@ -153,8 +166,8 @@ struct parser {
         level_up();
     }
 
-    std::shared_ptr<Value> current;
-    std::vector<std::shared_ptr<Value>> parents;
+    std::shared_ptr<Value> value;
+    std::shared_ptr<Item> current;
     bool stop;
 };
 
@@ -202,7 +215,7 @@ std::shared_ptr<Value> parse(I &begin, I &end) {
     auto document = _ws & value & _ws;
 
     if (document(begin, end)) {
-        return p.current;
+        return p.value;
     } else {
         return nullptr;
     }
