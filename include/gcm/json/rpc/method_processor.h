@@ -23,6 +23,10 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+
+#include "../json.h"
 #include "types.h"
 #include "promise.h"
 

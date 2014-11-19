@@ -23,6 +23,9 @@
 
 #pragma once
 
+#include <mutex>
+#include <condition_variable>
+
 namespace gcm {
 namespace json {
 namespace rpc {

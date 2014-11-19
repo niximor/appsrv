@@ -23,6 +23,13 @@
 
 #pragma once
 
+#include <vector>
+#include <memory>
+#include <mutex>
+#include <condition_variable>
+
+#include "promise.h"
+
 namespace gcm {
 namespace json {
 namespace rpc {

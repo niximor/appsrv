@@ -23,6 +23,13 @@
 
 #pragma once
 
+#include <functional>
+#include <memory>
+#include <string>
+#include <map>
+
+#include <gcm/thread/pool.h>
+
 #include "detail.h"
 #include "method_processor.h"
 #include "../validator.h"

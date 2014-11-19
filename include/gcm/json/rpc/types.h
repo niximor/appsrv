@@ -23,6 +23,11 @@
 
 #pragma once
 
+#include <memory>
+#include <map>
+#include <string>
+#include <functional>
+
 namespace gcm {
 namespace json {
 namespace rpc {

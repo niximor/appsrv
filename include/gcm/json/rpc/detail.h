@@ -23,6 +23,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "types.h"
 #include "../validator.h"
 
