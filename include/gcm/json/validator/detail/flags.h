@@ -23,9 +23,38 @@
 
 #pragma once
 
-#include <stdexcept>
+namespace gcm {
+namespace json {
+namespace validator {
+namespace detail {
 
-#include "validator/diagnostics.h"
-#include "validator/validators.h"
-#include "validator/flags.h"
-#include "validator/params.h"
+template<typename T>
+class Nullable_t {
+public:
+    Nullable_t(T param_def): param_def(param_def)
+    {}
+
+    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
+        if (value->get_type() == ValueType::Null) {
+            return true;
+        } else {
+            return param_def(diag, value);
+        }
+    }
+
+    auto get_item() {
+        return param_def.get_item();
+    }
+
+    auto get_help() {
+        return param_def.get_help();
+    }
+
+protected:
+    T param_def;
+};
+
+} // namespace detail
+} // namespace validator
+} // namespace json
+} // namespace gcm

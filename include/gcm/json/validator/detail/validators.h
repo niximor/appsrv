@@ -1,0 +1,146 @@
+/**
+ * Copyright 2014 Michal Kuchta <niximor@gmail.com>
+ *
+ * This file is part of GCM::AppSrv.
+ *
+ * GCM::AppSrv is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * GCM::AppSrv is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with GCM::AppSrv. If not, see http://www.gnu.org/licenses/.
+ *
+ * @author Michal Kuchta <niximor@gmail.com>
+ * @date 2014-10-28
+ *
+ */
+
+#pragma once
+
+#include "../../json.h"
+
+namespace gcm {
+namespace json {
+namespace validator {
+namespace detail {
+
+class ParamDefinition {
+public:
+    ParamDefinition(ValueType type, std::string &&item, std::string &&help):
+        type(type), item(std::forward<std::string>(item)), help(std::forward<std::string>(help))
+    {}
+
+    ValueType get_type() const {
+        return type;
+    }
+
+    std::string get_item() const {
+        return item;
+    }
+
+    std::string get_help() const {
+        return help;
+    }
+
+    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
+        if (value->get_type() != type) {
+            diag.add_problem(
+                get_item(),
+                ProblemCode::WrongType,
+                "Wrong type. Expected " + str_type(type) + ", instead got " + str_type(value->get_type())
+            );
+            return false;
+        }
+
+        return true;
+    }
+
+protected:
+    ValueType type;
+    std::string item;
+    std::string help;
+};
+
+template<typename... T>
+class Object_t: public ParamDefinition {
+public:
+    Object_t(const char *item, const char *help, T... params):
+        ParamDefinition(ValueType::Object, item, help),
+        params(std::forward_as_tuple(params...))
+    {}
+
+    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
+        auto res = ParamDefinition::operator()(diag, value);
+
+        auto &obj = to<json::Object>(value);
+
+        // Test if there are all required options in the struct
+        res &= call_func(diag, obj, std::index_sequence_for<T...>{});
+
+        // TODO: Test if there is no unexpected argument.
+        for (auto &pair: obj) {
+            if (!find_item(pair.first, std::index_sequence_for<T...>{})) {
+                diag.add_problem(pair.first, ProblemCode::UnexpectedParam, "Object does not have item " + pair.first);
+                res &= false;
+            }
+        }
+
+        return res;
+    }
+
+protected:
+    std::tuple<T...> params;
+
+    template<typename Head, typename... Tail>
+    bool int_validator(Diagnostics &diag, json::Object &obj, Head head, Tail... tail) const {
+        if (obj.has_key(head.get_item())) {
+            auto res = head(diag, obj[head.get_item()]);
+            res &= int_validator(diag, obj, tail...);
+            return res;
+        } else {
+            diag.add_problem(
+                head.get_item(),
+                ProblemCode::MustBePresent,
+                // TODO: Full path to the item.
+                "Item " + head.get_item() + " is missing in the object."
+            );
+
+            int_validator(diag, obj, tail...);
+            return false;
+        }
+    }
+
+    bool int_validator(Diagnostics &, json::Object &) const {
+        return true;
+    }
+
+    template<std::size_t ...I>
+    bool call_func(Diagnostics &diag, json::Object &obj, std::index_sequence<I...>) const {
+        return int_validator(diag, obj, std::get<I>(params)...);
+    }
+
+    template<typename Head, typename... Tail>
+    bool int_find_item(const std::string &item, Head head, Tail... tail) const {
+        return head.get_item() == item || int_find_item(item, tail...);
+    }
+
+    bool int_find_item(const std::string &) const {
+        return false;
+    }
+
+    template<std::size_t ...I>
+    bool find_item(const std::string &item, std::index_sequence<I...>) const {
+        return int_find_item(item, std::get<I>(params)...);
+    }
+};
+
+} // namespace detail
+} // namespace validator
+} // namespace json
+} // namespace gcm

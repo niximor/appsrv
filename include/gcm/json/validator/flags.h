@@ -23,9 +23,17 @@
 
 #pragma once
 
-#include <stdexcept>
+#include "detail/flags.h"
 
-#include "validator/diagnostics.h"
-#include "validator/validators.h"
-#include "validator/flags.h"
-#include "validator/params.h"
+namespace gcm {
+namespace json {
+namespace validator {
+
+template<typename T>
+auto Nullable(T param_def) {
+    return detail::Nullable_t<T>(param_def);
+}
+
+} // namespace validator
+} // namespace json
+} // namespace gcm

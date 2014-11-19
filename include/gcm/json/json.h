@@ -245,6 +245,20 @@ inline std::shared_ptr<Value> make_null() {
     return std::make_shared<Value>();
 }
 
+template<typename Head, typename... Tail>
+inline std::shared_ptr<Value> make_object(Head head, Tail... tail) {
+    std::shared_ptr<Value> obj = make_object(tail...);
+    to<Object>(obj)[head.first] = head.second;
+    return obj;
+}
+
+template<typename Head>
+inline std::shared_ptr<Value> make_object(Head head) {
+    std::shared_ptr<Value> obj = std::make_shared<Object>();
+    to<Object>(obj)[head.first] = head.second;
+    return obj;
+}
+
 inline std::shared_ptr<Value> make_object() {
     return std::make_shared<Object>();
 }
