@@ -23,27 +23,41 @@
 
 #pragma once
 
-#include "detail/flags.h"
-
 namespace gcm {
 namespace json {
-namespace validator {
+namespace rpc {
 
-template<typename T>
-auto Nullable(T param_def) {
-    return detail::Nullable_t<T>(param_def);
+template<typename PromiseDone>
+inline void wait_all(std::vector<std::shared_ptr<Promise>> promises, PromiseDone done) {
+    std::mutex m;
+    std::condition_variable cv;
+
+    for (auto &p: promises) {
+        p->notify_done = &cv;
+    }
+
+    while (!promises.empty()) {
+        bool changed = true;
+        while (changed) {
+            changed = false;
+
+            for (auto it = promises.begin(); it != promises.end(); ++it) {
+                if ((*it)->try_wait()) {
+                    // Promise has work done.
+                    done(**it);
+
+                    promises.erase(it);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        std::unique_lock<std::mutex> lock(m);
+        cv.wait(lock);
+    }
 }
 
-template<typename T>
-auto Optional(T param_def) {
-    return detail::Optional_t<T>(param_def);
-}
-
-template<typename T, typename V>
-auto Optional(T param_def, V default_value) {
-    return detail::OptionalWithDefault_t<T, V>(param_def, default_value);
-}
-
-} // namespace validator
+} // namespace rpc
 } // namespace json
 } // namespace gcm

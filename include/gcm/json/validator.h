@@ -29,3 +29,4 @@
 #include "validator/validators.h"
 #include "validator/flags.h"
 #include "validator/params.h"
+#include "validator/genhelp.h"

@@ -125,6 +125,42 @@ go_bandit([](){
                 AssertThrows(v::Diagnostics, def.validate(array));
             });
 
+            it("supports optional", [](){
+                Array array;
+                array.push_back(make_object(
+                    std::make_pair("param1", make_string("Hello"))
+                ));
+
+                auto def = v::ParamDefinitions(
+                    v::Object("params", "Param definitions",
+                        v::String("param1", "First param"),
+                        v::Optional(v::String("param2", "Optional second param."))
+                    )
+                );
+
+                AssertThat(def.validate(array), Equals(true));
+            });
+
+            it("supports optional with default", [](){
+                Array array;
+                array.push_back(make_object(
+                    std::make_pair("param1", make_string("Hello"))
+                ));
+
+                auto def = v::ParamDefinitions(
+                    v::Object("params", "Param definitions",
+                        v::String("param1", "First param"),
+                        v::Optional(
+                            v::String("param2", "Optional second param with default."),
+                            make_string("World!")
+                        )
+                    )
+                );
+
+                AssertThat(def.validate(array), Equals(true));
+                AssertThat(to<String>(to<Object>(array[0])["param2"]).get_value(), Equals("World!"));
+            });
+
         });
     });
 });

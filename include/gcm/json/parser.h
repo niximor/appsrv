@@ -67,7 +67,7 @@ struct parser {
     template<typename I>
     void null_value(I, I) {
         test_stop();
-        std::cout << "null value" << std::endl;
+        //std::cout << "null value" << std::endl;
         *(current->value) = make_null();
         level_up();
     }
@@ -75,7 +75,7 @@ struct parser {
     template<typename I>
     void true_value(I, I) {
         test_stop();
-        std::cout << "true value" << std::endl;
+        //std::cout << "true value" << std::endl;
         *(current->value) = make_bool(true);
         level_up();
     }
@@ -83,7 +83,7 @@ struct parser {
     template<typename I>
     void false_value(I, I) {
         test_stop();
-        std::cout << "false value" << std::endl;
+        //std::cout << "false value" << std::endl;
         *(current->value) = make_bool(false);
         level_up();
     }
@@ -91,7 +91,7 @@ struct parser {
     template<typename I>
     void int_value(I begin, I end) {
         test_stop();
-        std::cout << "int value" << std::endl;
+        //std::cout << "int value" << std::endl;
         *(current->value) = make_int(std::stoi(std::string(begin, end)));
         level_up();
     }
@@ -99,7 +99,7 @@ struct parser {
     template<typename I>
     void double_value(I begin, I end) {
         test_stop();
-        std::cout << "double value" << std::endl;
+        //std::cout << "double value" << std::endl;
         *(current->value) = make_double(std::stod(std::string(begin, end)));
         level_up();
     }
@@ -107,7 +107,7 @@ struct parser {
     template<typename I>
     void string_value(I begin, I end) {
         test_stop();
-        std::cout << "string value" << std::endl;
+        //std::cout << "string value" << std::endl;
         *(current->value) = make_string(std::string(begin, end));
         level_up();
     }
@@ -115,14 +115,14 @@ struct parser {
     template<typename I>
     void array_begin(I, I) {
         test_stop();
-        std::cout << "array begin" << std::endl;
+        //std::cout << "array begin" << std::endl;
         *(current->value) = make_array();
     }
 
     template<typename I>
     void new_array_item(I, I) {
         test_stop();
-        std::cout << "array item" << std::endl;
+        //std::cout << "array item" << std::endl;
         auto &arr = to<Array>(*(current->value));
         arr.push_back(make_null());
 
@@ -135,21 +135,21 @@ struct parser {
     template<typename I>
     void array_end(I, I) {
         test_stop();
-        std::cout << "array end" << std::endl;
+        //std::cout << "array end" << std::endl;
         level_up();
     }
 
     template<typename I>
     void obj_begin(I, I) {
         test_stop();
-        std::cout << "obj begin" << std::endl;
+        //std::cout << "obj begin" << std::endl;
         *(current->value) = make_object();
     }
 
     template<typename I>
     void new_obj_item(I begin, I end) {
         test_stop();
-        std::cout << "new obj item: " << std::string(begin, end) << std::endl;
+        //std::cout << "new obj item: " << std::string(begin, end) << std::endl;
         auto &obj = to<Object>(*(current->value));
         
         auto item = std::make_shared<Item>();
@@ -162,7 +162,7 @@ struct parser {
     template<typename I>
     void obj_end(I, I) {
         test_stop();
-        std::cout << "obj end" << std::endl;
+        //std::cout << "obj end" << std::endl;
         level_up();
     }
 

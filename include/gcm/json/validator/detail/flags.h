@@ -35,7 +35,7 @@ public:
     {}
 
     bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
-        if (value->get_type() == ValueType::Null) {
+        if (value && value->get_type() == ValueType::Null) {
             return true;
         } else {
             return param_def(diag, value);
@@ -52,6 +52,66 @@ public:
 
 protected:
     T param_def;
+};
+
+template<typename T>
+class Optional_t {
+public:
+    Optional_t(T param_def): param_def(param_def) {
+
+    }
+
+    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
+        if (!value) {
+            // Optional and not present.
+            return true;
+        } else {
+            return param_def(diag, value);
+        }
+    }
+
+    auto get_item() {
+        return param_def.get_item();
+    }
+
+    auto get_help() {
+        return param_def.get_help();
+    }
+
+protected:
+    T param_def;
+};
+
+template<typename T, typename V>
+class OptionalWithDefault_t {
+public:
+    OptionalWithDefault_t(T param_def, V default_value):
+        param_def(param_def),
+        default_value(default_value)
+    {
+    }
+
+    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
+        if (!value) {
+            // Optional and not present.
+            value = default_value;
+            return param_def(diag, value);
+        } else {
+            return param_def(diag, value);
+        }
+    }
+
+    auto get_item() {
+        return param_def.get_item();
+    }
+
+    auto get_help() {
+        return param_def.get_help();
+    }
+
+protected:
+    T param_def;
+    V default_value;
 };
 
 } // namespace detail

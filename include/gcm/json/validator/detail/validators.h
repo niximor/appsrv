@@ -49,22 +49,60 @@ public:
     }
 
     bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
-        if (value->get_type() != type) {
+        if (!value) {
             diag.add_problem(
                 get_item(),
-                ProblemCode::WrongType,
-                "Wrong type. Expected " + str_type(type) + ", instead got " + str_type(value->get_type())
+                ProblemCode::MustBePresent,
+                "Item " + get_item() + " must be present."
             );
             return false;
+        } else if (value->get_type() != type) {
+            if (value->get_type() == ValueType::Null) {
+                diag.add_problem(
+                    get_item(),
+                    ProblemCode::CannotBeNull,
+                    "Item " + get_item() + " cannot be null."
+                );
+            } else {
+                diag.add_problem(
+                    get_item(),
+                    ProblemCode::WrongType,
+                    "Wrong type. Expected " + str_type(type) + ", instead got " + str_type(value->get_type())
+                );
+            }
+            return false;
+        } else {
+            return true;
         }
-
-        return true;
     }
 
 protected:
     ValueType type;
     std::string item;
     std::string help;
+};
+
+template<typename T>
+class Array_t: public detail::ParamDefinition {
+public:
+    Array_t(const char *item, const char *help, T validator):
+        detail::ParamDefinition(ValueType::Array, item, help),
+        validator(validator)
+    {}
+
+    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) {
+        bool result = ParamDefinition::operator()(diag, value);
+        if (result) {
+            auto &arr = to<json::Array>(value);
+            for (auto &i: arr) {
+                result &= validator(diag, i);
+            }
+        }
+        return result;
+    }
+
+protected:
+    T validator;
 };
 
 template<typename... T>
@@ -78,16 +116,18 @@ public:
     bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
         auto res = ParamDefinition::operator()(diag, value);
 
-        auto &obj = to<json::Object>(value);
+        if (res) {
+            auto &obj = to<json::Object>(value);
 
-        // Test if there are all required options in the struct
-        res &= call_func(diag, obj, std::index_sequence_for<T...>{});
+            // Test if there are all required options in the struct
+            res &= call_func(diag, obj, std::index_sequence_for<T...>{});
 
-        // TODO: Test if there is no unexpected argument.
-        for (auto &pair: obj) {
-            if (!find_item(pair.first, std::index_sequence_for<T...>{})) {
-                diag.add_problem(pair.first, ProblemCode::UnexpectedParam, "Object does not have item " + pair.first);
-                res &= false;
+            // TODO: Test if there is no unexpected argument.
+            for (auto &pair: obj) {
+                if (!find_item(pair.first, std::index_sequence_for<T...>{})) {
+                    diag.add_problem(pair.first, ProblemCode::UnexpectedParam, "Object does not have item " + pair.first);
+                    res &= false;
+                }
             }
         }
 
@@ -99,21 +139,9 @@ protected:
 
     template<typename Head, typename... Tail>
     bool int_validator(Diagnostics &diag, json::Object &obj, Head head, Tail... tail) const {
-        if (obj.has_key(head.get_item())) {
-            auto res = head(diag, obj[head.get_item()]);
-            res &= int_validator(diag, obj, tail...);
-            return res;
-        } else {
-            diag.add_problem(
-                head.get_item(),
-                ProblemCode::MustBePresent,
-                // TODO: Full path to the item.
-                "Item " + head.get_item() + " is missing in the object."
-            );
-
-            int_validator(diag, obj, tail...);
-            return false;
-        }
+        auto res = head(diag, obj[head.get_item()]);
+        res &= int_validator(diag, obj, tail...);
+        return res;
     }
 
     bool int_validator(Diagnostics &, json::Object &) const {

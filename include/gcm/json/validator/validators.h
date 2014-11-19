@@ -60,27 +60,10 @@ public:
     {}
 };
 
-template<typename ValueType>
-class Array: public detail::ParamDefinition {
-public:
-    Array(const char *item, const char *help):
-        detail::ParamDefinition(ValueType::Array, item, help)
-    {}
-
-    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) {
-        bool result = ParamDefinition::operator()(diag, value);
-        if (result) {
-            auto &arr = to<json::Array>(value);
-            for (auto &i: arr) {
-                result &= validator(diag, i);
-            }
-        }
-        return result;
-    }
-
-protected:
-    ValueType validator;
-};
+template<typename T>
+auto Array(const char *item, const char *help, T validator) {
+    return detail::Array_t<T>(item, help, validator);
+}
 
 template<typename... Params>
 auto Object(const char *item, const char *help, Params... params) {

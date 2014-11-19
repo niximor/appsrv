@@ -23,27 +23,48 @@
 
 #pragma once
 
-#include "detail/flags.h"
-
 namespace gcm {
 namespace json {
-namespace validator {
+namespace rpc {
 
-template<typename T>
-auto Nullable(T param_def) {
-    return detail::Nullable_t<T>(param_def);
+namespace detail {
+    class MethodProcessor;
 }
 
-template<typename T>
-auto Optional(T param_def) {
-    return detail::Optional_t<T>(param_def);
-}
+class Promise {
+public:
+    friend class detail::MethodProcessor;
 
-template<typename T, typename V>
-auto Optional(T param_def, V default_value) {
-    return detail::OptionalWithDefault_t<T, V>(param_def, default_value);
-}
+    Promise(): notify_done(nullptr), has_result(false)
+    {}
 
-} // namespace validator
+    void wait() {
+        while (!has_result) {
+            std::unique_lock<std::mutex> lk(mutex);
+            cb.wait(lk);
+        }
+    }
+
+    bool try_wait() {
+        return has_result;
+    }
+
+    std::shared_ptr<Value> get() {
+        wait();
+        return result;
+    }
+
+public:
+    std::condition_variable *notify_done;
+
+protected:
+    std::condition_variable cb;
+    std::mutex mutex;
+
+    bool has_result;
+    std::shared_ptr<Value> result;
+};
+
+} // namespace gcm
 } // namespace json
 } // namespace gcm

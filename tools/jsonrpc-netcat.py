@@ -29,7 +29,7 @@ try:
 
             try:
                 result = rpc.call(method, *params)
-                print "%r" % result
+                print "%s" % result
             except pyjsonrpc.rpcerror.JsonRpcError, e:
                 print "%s: %s" % (e.__class__.__name__, e.message)
             except Exception, e:

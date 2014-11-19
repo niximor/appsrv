@@ -30,6 +30,7 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <iomanip>
 
 namespace gcm {
 namespace json {
@@ -69,15 +70,15 @@ public:
 
     static constexpr const ValueType type = ValueType::Null;
 
-    virtual ValueType get_type() {
+    virtual ValueType get_type() const {
         return Value::type;
     }
 
-    bool is_null() {
+    bool is_null() const {
         return get_type() == ValueType::Null;
     }
 
-    virtual std::string to_string() {
+    virtual std::string to_string() const {
         return "null";
     }
 };
@@ -92,15 +93,15 @@ public:
 
     static constexpr const ValueType type = ValueType::Object;
 
-    ValueType get_type() {
+    ValueType get_type() const {
         return Object::type;
     }
 
-    bool has_key(const std::string &index) {
+    bool has_key(const std::string &index) const {
         return find(index) != end();
     }
 
-    std::string to_string() {
+    std::string to_string() const {
         std::stringstream ss;
 
         ss << "{";
@@ -132,11 +133,11 @@ public:
 
     static constexpr const ValueType type = ValueType::Array;
 
-    ValueType get_type() {
+    ValueType get_type() const {
         return Array::type;
     }
 
-    std::string to_string() {
+    std::string to_string() const {
         std::stringstream ss;
 
         ss << "[";
@@ -168,7 +169,7 @@ public:
 
     static constexpr const ValueType type = VT;
 
-    ValueType get_type() {
+    ValueType get_type() const {
         return VT;
     }
 
@@ -183,6 +184,14 @@ public:
         return value;
     }
 
+    T& get_value() {
+        return value;
+    }
+
+    const T &get_value() const {
+        return value;
+    }
+
     template<typename I>
     PlainValue &operator=(I &&v) {
         value = std::forward<std::decay_t<I>>(v);
@@ -192,20 +201,20 @@ public:
     PlainValue &operator=(const PlainValue &other) = default;
     PlainValue &operator=(PlainValue &&other) = default;
 
-    std::string to_string() {
+    std::string to_string() const {
         return get_string<T>();
     }
 
 protected:
     template<typename I>
     std::enable_if_t<std::is_arithmetic<I>::value && !std::is_same<I, bool>::value, std::string>
-    get_string() {
+    get_string() const {
         return std::to_string(value);
     }
 
     template<typename I>
     std::enable_if_t<std::is_same<I, bool>::value, std::string>
-    get_string() {
+    get_string() const {
         if (value) {
             return "true";
         } else {
@@ -215,8 +224,40 @@ protected:
 
     template<typename I>
     std::enable_if_t<std::is_same<I, std::string>::value, std::string>
-    get_string() {
-        return "\"" + value + "\"";
+    get_string() const {
+        std::stringstream ss;
+        ss << '"';
+
+        bool is_unicode = false;
+        for (char ch: value) {
+            if (is_unicode) {
+                ss << "\\u" << std::setw(2) << std::setfill('0') << std::hex << (int)ch;
+                continue;
+            }
+
+            if (std::isprint(ch)) {
+                ss << ch;
+            } else if (ch == '\"' || ch == '\\' || ch == '/') {
+                ss << '\\' << ch;
+            } else if (ch == '\b') {
+                ss << "\\b";
+            } else if (ch == '\f') {
+                ss << "\\f";
+            } else if (ch == '\n') {
+                ss << "\\n";
+            } else if (ch == '\r') {
+                ss << "\\r";
+            } else if (ch == '\t') {
+                ss << "\\t";
+            } else {
+                ss << "\\u" << std::setw(2) << std::setfill('0') << std::hex << (int)ch;
+                is_unicode = true;
+            }
+        }
+
+        ss << '"';
+
+        return ss.str();
     }
 
     T value;

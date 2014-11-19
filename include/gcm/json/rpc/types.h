@@ -23,27 +23,13 @@
 
 #pragma once
 
-#include "detail/flags.h"
-
 namespace gcm {
 namespace json {
-namespace validator {
+namespace rpc {
 
-template<typename T>
-auto Nullable(T param_def) {
-    return detail::Nullable_t<T>(param_def);
-}
+using Method = std::shared_ptr<Value>(Array &params);
+using MethodRegistry = std::map<std::string, std::function<Method>>;
 
-template<typename T>
-auto Optional(T param_def) {
-    return detail::Optional_t<T>(param_def);
-}
-
-template<typename T, typename V>
-auto Optional(T param_def, V default_value) {
-    return detail::OptionalWithDefault_t<T, V>(param_def, default_value);
-}
-
-} // namespace validator
+} // namespace rpc
 } // namespace json
 } // namespace gcm
