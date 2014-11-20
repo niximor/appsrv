@@ -26,6 +26,7 @@
 #include <functional>
 #include <map>
 #include <vector>
+#include <mutex>
 
 #include <cstring>
 
@@ -36,11 +37,39 @@
 namespace gcm {
 namespace thread {
 
+using Callback = std::function<void()>;
+
+class Signal;
+
+class SignalBind {
+public:
+    friend class Signal;
+
+    SignalBind() = delete;
+    SignalBind(const SignalBind &other) = delete;
+    SignalBind(SignalBind &&) = default;
+
+    SignalBind &operator=(const SignalBind &other) = delete;
+
+    ~SignalBind();
+
+private:
+    SignalBind(Signal &signal, int signum, std::size_t pos): signal(signal), signum(signum), pos(pos) {
+    }
+
+protected:
+    Signal &signal;
+    int signum;
+    std::size_t pos;
+};
+
 class Signal {
 public:
-    using Callback = std::function<void()>;
+    friend class SignalBind;
 
-    static void at(int signum, Callback cb) {
+    static SignalBind at(int signum, Callback cb) {
+        std::lock_guard<std::mutex> lock(self.mutex);
+
         if (self.callbacks.find(signum) == self.callbacks.end()) {
             // Trap new signal.
             struct sigaction act;
@@ -50,7 +79,18 @@ public:
             ::sigaction(signum, &act, NULL);
         }
 
-        self.callbacks[signum].push_back(cb);
+        auto &vect = self.callbacks[signum];
+
+        std::size_t index = 0;
+        for (auto it = vect.begin(); it != vect.end(); ++it, ++index) {
+            if (*it == nullptr) {
+                *it = cb;
+                return SignalBind(self, signum, index);
+            }
+        }
+
+        vect.push_back(cb);
+        return SignalBind(self, signum, vect.size() - 1);
     }
 
     static Signal &get_instance() {
@@ -65,12 +105,28 @@ protected:
 
     static void handler(int signum) {
         for (auto &call: Signal::get_instance().callbacks[signum]) {
-            call();
+            if (call) {
+                call();
+            }
+        }
+    }
+
+    void unbind(SignalBind &bind) {
+        auto siglist = callbacks.find(bind.signum);
+        if (siglist != callbacks.end()) {
+            if (bind.pos < siglist->second.size()) {
+                siglist->second[bind.pos] = nullptr;
+            }
         }
     }
 
     std::map<int, std::vector<Callback>> callbacks;
+    std::mutex mutex;
 };
+
+inline SignalBind::~SignalBind() {
+    signal.unbind(*this);
+}
 
 } // namespace thread
 } // namespace gcm

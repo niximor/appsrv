@@ -24,6 +24,7 @@
 #pragma once
 
 #include "../../json.h"
+#include "types.h"
 
 namespace gcm {
 namespace json {
@@ -83,12 +84,16 @@ protected:
 };
 
 template<typename T>
-class Array_t: public detail::ParamDefinition {
+class Array_t: public detail::ParamDefinition, public ArrayBase {
 public:
     Array_t(const char *item, const char *help, T validator):
         detail::ParamDefinition(ValueType::Array, item, help),
         validator(validator)
     {}
+
+    T &get_contents() {
+        return validator;
+    }
 
     bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) {
         bool result = ParamDefinition::operator()(diag, value);
@@ -106,7 +111,7 @@ protected:
 };
 
 template<typename... T>
-class Object_t: public ParamDefinition {
+class Object_t: public ParamDefinition, public Mappable {
 public:
     Object_t(const char *item, const char *help, T... params):
         ParamDefinition(ValueType::Object, item, help),
@@ -132,6 +137,11 @@ public:
         }
 
         return res;
+    }
+
+    template<typename C>
+    void map(C call) {
+        int_map(call, std::index_sequence_for<T...>{});
     }
 
 protected:
@@ -165,6 +175,22 @@ protected:
     template<std::size_t ...I>
     bool find_item(const std::string &item, std::index_sequence<I...>) const {
         return int_find_item(item, std::get<I>(params)...);
+    }
+
+    template<typename C, std::size_t... I>
+    void int_map(C call, std::index_sequence<I...>) {
+        int_map2(call, std::get<I>(params)...);
+    }
+
+    template<typename C, typename Head, typename... Tail>
+    void int_map2(C call, Head head, Tail... tail) {
+        call(head);
+        int_map2(call, tail...);
+    }
+
+    template<typename C>
+    void int_map2(C) {
+        // Trailer for list
     }
 };
 

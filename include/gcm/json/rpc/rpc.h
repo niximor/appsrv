@@ -29,6 +29,7 @@
 #include <map>
 
 #include <gcm/thread/pool.h>
+#include <gcm/thread/signal.h>
 
 #include "detail.h"
 #include "method_processor.h"
@@ -40,7 +41,9 @@ namespace rpc {
 
 class Rpc {
 public:
-    Rpc() {
+    Rpc():
+        on_sigint(gcm::thread::Signal::at(SIGINT, std::bind(&Rpc::stop, this)))
+    {
         using namespace std::placeholders;
         namespace v = validator;
 
@@ -59,6 +62,10 @@ public:
             ),
             v::String("method_help", "Help for given method.")
         );
+    }
+
+    void stop() {
+        pool.stop();
     }
 
     std::shared_ptr<Promise> add_work(std::shared_ptr<Value> request_id, std::string &&method, Array &&params) {
@@ -136,6 +143,7 @@ protected:
     std::map<std::string, std::string> help;
 
     gcm::thread::Pool<detail::MethodProcessor> pool;
+    gcm::thread::SignalBind on_sigint;
 };
 
 } // namespace gcm

@@ -23,13 +23,15 @@
 
 #pragma once
 
+#include "types.h"
+
 namespace gcm {
 namespace json {
 namespace validator {
 namespace detail {
 
 template <typename... Args>
-class ParamDefinitions_t {
+class ParamDefinitions_t: public Mappable {
 public:
     ParamDefinitions_t(Args... params): params(std::forward_as_tuple(params...)), num_args(sizeof...(params))
     {}

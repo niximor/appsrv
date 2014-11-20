@@ -51,7 +51,7 @@ public:
     }
 
     void operator()() {
-        gcm::thread::Signal::at(SIGINT, std::bind(&InfiniteLoop::stop, this));
+        gcm::thread::SignalBind on_sigint{gcm::thread::Signal::at(SIGINT, std::bind(&InfiniteLoop::stop, this))};
 
         while (!quit) {
             std::this_thread::sleep_for(std::chrono::seconds(1));

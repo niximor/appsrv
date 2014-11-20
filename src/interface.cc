@@ -172,7 +172,7 @@ bool IntInterface::start() {
     Stats handler_stats;
 
     // Stop server at sigint.
-    Signal::at(SIGINT, std::bind(&s::TcpServer::stop, &server));
+    gcm::thread::SignalBind on_sigint{Signal::at(SIGINT, std::bind(&s::TcpServer::stop, &server))};
 
     ServerApi api{cfgfile, handler_stats, config["name"].asString()};
 
