@@ -28,11 +28,13 @@
 #include <string>
 #include <functional>
 
+#include "../json.h"
+
 namespace gcm {
 namespace json {
 namespace rpc {
 
-using Method = std::shared_ptr<Value>(Array &params);
+using Method = JsonValue(Array &params);
 using MethodRegistry = std::map<std::string, std::function<Method>>;
 
 } // namespace rpc

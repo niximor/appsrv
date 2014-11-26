@@ -49,7 +49,7 @@ public:
         return help;
     }
 
-    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
+    bool operator()(Diagnostics &diag, JsonValue &value) const {
         if (!value) {
             diag.add_problem(
                 get_item(),
@@ -95,7 +95,7 @@ public:
         return validator;
     }
 
-    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) {
+    bool operator()(Diagnostics &diag, JsonValue &value) {
         bool result = ParamDefinition::operator()(diag, value);
         if (result) {
             auto &arr = to<json::Array>(value);
@@ -118,7 +118,7 @@ public:
         params(std::forward_as_tuple(params...))
     {}
 
-    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
+    bool operator()(Diagnostics &diag, JsonValue &value) const {
         auto res = ParamDefinition::operator()(diag, value);
 
         if (res) {

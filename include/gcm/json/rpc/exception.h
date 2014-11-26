@@ -1,3 +1,26 @@
+/**
+ * Copyright 2014 Michal Kuchta <niximor@gmail.com>
+ *
+ * This file is part of GCM::AppSrv.
+ *
+ * GCM::AppSrv is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * GCM::AppSrv is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with GCM::AppSrv. If not, see http://www.gnu.org/licenses/.
+ *
+ * @author Michal Kuchta <niximor@gmail.com>
+ * @date 2014-10-28
+ *
+ */
+
 #pragma once
 
 #include "../json.h"
@@ -16,11 +39,11 @@ public:
         Exception(message), code(code), request_id(make_null())
     {}
 
-    RpcException(std::shared_ptr<Value> request_id, int code, std::string message):
+    RpcException(JsonValue request_id, int code, std::string message):
         Exception(message), code(code), request_id(request_id)
     {}
 
-    RpcException(std::shared_ptr<Value> request_id, std::string message):
+    RpcException(JsonValue request_id, std::string message):
         Exception(message), code(-32603), request_id(request_id)
     {}
 
@@ -28,7 +51,7 @@ public:
         return code;
     }
 
-    std::shared_ptr<Value> to_json(bool full_resp = true) {
+    JsonValue to_json(bool full_resp = true) {
         auto obj = Object();
         obj["jsonrpc"] = make_string("2.0");
         obj["id"] = request_id;
@@ -46,7 +69,7 @@ public:
 
 protected:
     int code;
-    std::shared_ptr<Value> request_id;
+    JsonValue request_id;
 };
 
 class MethodNotFound: public RpcException {
@@ -54,7 +77,7 @@ public:
     MethodNotFound(std::string name): RpcException(-32601, "Method " + name + " not found.")
     {}
 
-    MethodNotFound(std::shared_ptr<Value> request_id, std::string name):
+    MethodNotFound(JsonValue request_id, std::string name):
         RpcException(request_id, -32601, "Method " + name + " not found.")
     {}
 };

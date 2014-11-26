@@ -126,7 +126,7 @@ std::size_t gen_method_params(std::stringstream &ss, T &params) {
  * Generate method signature.
  * Method without specified params or return type.
  */
-std::size_t gen_method_signature(const std::string &method_name, std::stringstream &ss) {
+inline std::size_t gen_method_signature(const std::string &method_name, std::stringstream &ss) {
     ss << "mixed " << method_name << "(...)";
     return 0;
 }
@@ -211,7 +211,8 @@ calc_longest(T &param_pack) {
  * For other types, there are no inner objects. So length of inner items is 0.
  */
 template<typename T>
-std::size_t calc_longest(T &) {
+std::enable_if_t<!std::is_base_of<Mappable, T>::value, std::size_t>
+calc_longest(T &) {
     return 0;
 }
 

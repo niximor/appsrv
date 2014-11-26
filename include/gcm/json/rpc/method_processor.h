@@ -37,7 +37,7 @@ namespace detail {
 
 class MethodProcessor {
 public:
-    MethodProcessor(MethodRegistry &registry, std::shared_ptr<Promise> promise, std::shared_ptr<Value> request_id, std::string &&method, Array &&params):
+    MethodProcessor(MethodRegistry &registry, std::shared_ptr<Promise> promise, JsonValue request_id, std::string &&method, Array &&params):
         registry(registry),
         promise(promise),
         request_id(request_id),
@@ -90,7 +90,7 @@ public:
 protected:
     MethodRegistry &registry;
     std::shared_ptr<Promise> promise;
-    std::shared_ptr<Value> request_id;
+    JsonValue request_id;
     std::string method;
     Array params;
 };

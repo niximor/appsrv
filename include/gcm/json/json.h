@@ -332,5 +332,7 @@ inline std::shared_ptr<Value> make_bool(bool value) {
     return std::make_shared<Bool>(value);
 }
 
+using JsonValue = std::shared_ptr<Value>;
+
 } // namespace json
 } // namespace gcm

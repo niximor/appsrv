@@ -41,7 +41,7 @@ public:
         params(params)
     {}
 
-    std::shared_ptr<Value> operator()(Array &p) {
+    JsonValue operator()(Array &p) {
         params.validate(p);
         return method(p);
     }
@@ -60,7 +60,7 @@ public:
         result(result)
     {}
 
-    std::shared_ptr<Value> operator()(Array &p) {
+    JsonValue operator()(Array &p) {
         params.validate(p);
         auto out = method(p);
 

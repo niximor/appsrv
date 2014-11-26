@@ -174,10 +174,16 @@ bool IntInterface::start() {
     // Stop server at sigint.
     gcm::thread::SignalBind on_sigint{Signal::at(SIGINT, std::bind(&s::TcpServer::stop, &server))};
 
-    ServerApi api{cfgfile, handler_stats, config["name"].asString()};
+    ServerApi api{cfgfile, config, handler_stats, config["name"].asString()};
 
-    IntHandler handler(library, config, api);
-    server.serve_forever(handler);
+    try {
+        IntHandler handler(library, config, api);
+        server.serve_forever(handler);
+    } catch (std::exception &e) {
+        ERROR(log) << "Exception while executing handler " << api.handler_name << ": " << e.what();
+    } catch (...) {
+        ERROR(log) << "Unknown exception while executing handler " << api.handler_name << ".";
+    }
 
     return true;
 }

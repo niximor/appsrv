@@ -52,7 +52,7 @@ public:
         return has_result;
     }
 
-    std::shared_ptr<Value> get() {
+    JsonValue get() {
         wait();
         return result;
     }
@@ -65,7 +65,7 @@ protected:
     std::mutex mutex;
 
     bool has_result;
-    std::shared_ptr<Value> result;
+    JsonValue result;
 };
 
 } // namespace gcm

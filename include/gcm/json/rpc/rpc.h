@@ -68,7 +68,7 @@ public:
         pool.stop();
     }
 
-    std::shared_ptr<Promise> add_work(std::shared_ptr<Value> request_id, std::string &&method, Array &&params) {
+    std::shared_ptr<Promise> add_work(JsonValue request_id, std::string &&method, Array &&params) {
         auto p = std::make_shared<Promise>();
 
         pool.add_work(detail::MethodProcessor(
@@ -82,42 +82,42 @@ public:
         return p;
     }
 
-    void register_method(std::string name, std::function<Method> callback) {
+    void register_method(const std::string &name, std::function<Method> callback) {
         methods[name] = callback;
         help[name] = validator::genhelp(name, "");
     }
 
-    void register_method(std::string name, std::function<Method> callback, std::string desc) {
+    void register_method(const std::string &name, std::function<Method> callback, const std::string &desc) {
         methods[name] = callback;
         help[name] = validator::genhelp(name, desc);
     }
 
     template<typename T>
-    void register_method(std::string name, std::function<Method> callback, T params) {
+    void register_method(const std::string &name, std::function<Method> callback, T params) {
         methods[name] = detail::SafeCallback(callback, params);
         help[name] = validator::genhelp(name, "", params);
     }
 
     template<typename T>
-    void register_method(std::string name, std::function<Method> callback, std::string desc, T params) {
+    void register_method(const std::string &name, std::function<Method> callback, const std::string &desc, T params) {
         methods[name] = detail::SafeCallback(callback, params);
         help[name] = validator::genhelp(name, desc, params);
     }
 
     template<typename T, typename R>
-    void register_method(std::string name, std::function<Method> callback, T params, R result) {
+    void register_method(const std::string &name, std::function<Method> callback, T params, R result) {
         methods[name] = detail::SafeCallback(callback, params, result);
         help[name] = validator::genhelp(name, "", params, result);
     }
 
     template<typename T, typename R>
-    void register_method(std::string name, std::function<Method> callback, std::string desc, T params, R result) {
+    void register_method(const std::string &name, std::function<Method> callback, const std::string &desc, T params, R result) {
         methods[name] = detail::SafeCallback(callback, params, result);
         help[name] = validator::genhelp(name, desc, params, result);
     }
 
 protected:
-    std::shared_ptr<Value> list_methods(Array &) {
+    JsonValue list_methods(Array &) {
         Array result;
         for (auto &m: methods) {
             result.push_back(make_string(m.first));
@@ -125,7 +125,7 @@ protected:
         return std::make_shared<Array>(result);
     }
 
-    std::shared_ptr<Value> method_help(Array &params) {
+    JsonValue method_help(Array &params) {
         std::string methodName = to<String>(params[0]);
 
         auto it = methods.find(methodName);

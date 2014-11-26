@@ -44,8 +44,9 @@ public:
 
 class ServerApi {
 public:
-    ServerApi(config::Config &config, Stats &handler_stats, const std::string &handler_name):
+    ServerApi(config::Config &config, config::Value &interface_config, Stats &handler_stats, const std::string &handler_name):
         config(config),
+        interface_config(interface_config),
         handler_stats(handler_stats),
         handler_name(handler_name)
     {}
@@ -53,6 +54,7 @@ public:
     ServerApi(const ServerApi &) = default;
 
     config::Config &config;
+    config::Value &interface_config;
     Stats &handler_stats;
     const std::string &handler_name;
 };

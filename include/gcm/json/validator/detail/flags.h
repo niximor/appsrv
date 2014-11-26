@@ -34,7 +34,7 @@ public:
     Nullable_t(T param_def): param_def(param_def)
     {}
 
-    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
+    bool operator()(Diagnostics &diag, JsonValue &value) const {
         if (value && value->get_type() == ValueType::Null) {
             return true;
         } else {
@@ -61,7 +61,7 @@ public:
 
     }
 
-    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
+    bool operator()(Diagnostics &diag, JsonValue &value) const {
         if (!value) {
             // Optional and not present.
             return true;
@@ -72,6 +72,10 @@ public:
 
     auto get_item() {
         return param_def.get_item();
+    }
+
+    auto get_type() {
+        return param_def.get_type();
     }
 
     auto get_help() {
@@ -91,7 +95,7 @@ public:
     {
     }
 
-    bool operator()(Diagnostics &diag, std::shared_ptr<Value> &value) const {
+    bool operator()(Diagnostics &diag, JsonValue &value) const {
         if (!value) {
             // Optional and not present.
             value = default_value;
@@ -103,6 +107,10 @@ public:
 
     auto get_item() {
         return param_def.get_item();
+    }
+
+    auto get_type() {
+        return param_def.get_type();
     }
 
     auto get_help() {

@@ -29,6 +29,9 @@
 #include <gcm/json/json.h>
 #include <gcm/json/rpc.h>
 #include <gcm/json/parser.h>
+#include <gcm/io/util.h>
+#include <gcm/appsrv/json_rpc_api.h>
+#include <gcm/dl/dl.h>
 
 #include <vector>
 #include <memory>
@@ -39,17 +42,54 @@ namespace l = gcm::logging;
 
 using namespace gcm::socket::http;
 
+std::string find_module(gcm::config::Config &cfg, std::string name, bool test_default_dir = true) {
+    if (gcm::io::exists(name)) {
+        std::cout << "exists " << name << std::endl;
+        return name;
+    } else if (gcm::io::exists(name + ".so")) {
+        std::cout << "exists .so " << name << std::endl;
+        return name + ".so";
+    } else if (test_default_dir) {
+        return find_module(cfg, cfg.get("module_dir", ".") + "/" + name, false);
+    } else {
+        std::cout << "fallback" << std::endl;
+        return name;
+    }
+}
+
 class JsonHttpHandler: public gcm::appsrv::Handler {
 protected:
     gcm::appsrv::ServerApi &api;
     gcm::json::rpc::Rpc json;
     gcm::logging::Logger &log;
+    gcm::json::rpc::RpcApi rpc_api;
+    gcm::dl::Library module;
+    void *module_data;
 
 public:
     JsonHttpHandler(gcm::appsrv::ServerApi &api):
         api(api),
-        log(l::getLogger(api.handler_name))
-    {}
+        log(l::getLogger(api.handler_name)),
+        rpc_api(json, api, log),
+        module(find_module(api.config, api.interface_config["module"].asString())),
+        module_data(nullptr)
+    {
+        // Init the library
+        try {
+            module_data = module.get<void *, void *>("init")(&rpc_api);
+        } catch (gcm::dl::DlError &e) {
+            ERROR(log) << "Exception thrown while loading module: " << e.what();
+        }
+    }
+
+    ~JsonHttpHandler() {
+        // Finish the library
+        try {
+            module.get<void, void *>("stop")(module_data);
+        } catch (gcm::dl::DlError &e) {
+            ERROR(log) << "Exception thrown while unloading module: " << e.what();
+        }
+    }
 
     template<typename R, typename I>
     void process_body(R &response, I begin, I end) {
@@ -57,7 +97,7 @@ public:
             try {
                 std::vector<std::shared_ptr<gcm::json::rpc::Promise>> promises;
 
-                std::shared_ptr<gcm::json::Value> call;
+                gcm::json::JsonValue call;
                 I begin1 = begin;
                 I end1 = end;
                 while ((call = gcm::json::parse(begin1, end1)) != nullptr) {

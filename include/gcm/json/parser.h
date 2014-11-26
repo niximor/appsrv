@@ -40,7 +40,7 @@ public:
 
 struct parser {
     struct Item {
-        std::shared_ptr<Value> *value;
+        JsonValue *value;
         std::shared_ptr<Item> parent;
     };
 
@@ -166,13 +166,13 @@ struct parser {
         level_up();
     }
 
-    std::shared_ptr<Value> value;
+    JsonValue value;
     std::shared_ptr<Item> current;
     bool stop;
 };
 
 template<typename I>
-std::shared_ptr<Value> parse(I &begin, I &end) {
+JsonValue parse(I &begin, I &end) {
     using namespace gcm::parser;
     using namespace std::placeholders;
     
