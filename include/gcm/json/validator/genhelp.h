@@ -25,6 +25,7 @@
 
 #include <sstream>
 #include <type_traits>
+#include <iostream>
 
 #include "detail/flags.h"
 #include "detail/types.h"
@@ -302,13 +303,12 @@ void gen_param(std::stringstream &ss, std::size_t indent, std::size_t alignment,
         ss << " {";
     }
 
-    fill(ss, ' ', current - alignment);
+    int fillcnt = alignment - current;
+    fill(ss, ' ', fillcnt);
 
     ss << IndentStr;
     ss << param.get_help();
     ss << '\n';
-
-    gen_contents(ss, indent, param);
 
     if (param.get_type() == ValueType::Array) {
         gen_contents(ss, indent, param);
