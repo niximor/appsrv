@@ -44,15 +44,12 @@ using namespace gcm::socket::http;
 
 std::string find_module(gcm::config::Config &cfg, std::string name, bool test_default_dir = true) {
     if (gcm::io::exists(name)) {
-        std::cout << "exists " << name << std::endl;
         return name;
     } else if (gcm::io::exists(name + ".so")) {
-        std::cout << "exists .so " << name << std::endl;
         return name + ".so";
     } else if (test_default_dir) {
         return find_module(cfg, cfg.get("module_dir", ".") + "/" + name, false);
     } else {
-        std::cout << "fallback" << std::endl;
         return name;
     }
 }
@@ -60,18 +57,19 @@ std::string find_module(gcm::config::Config &cfg, std::string name, bool test_de
 class JsonHttpHandler: public gcm::appsrv::Handler {
 protected:
     gcm::appsrv::ServerApi &api;
+    gcm::dl::Library module;
     gcm::json::rpc::Rpc json;
     gcm::logging::Logger &log;
     gcm::json::rpc::RpcApi rpc_api;
-    gcm::dl::Library module;
+    
     void *module_data;
 
 public:
     JsonHttpHandler(gcm::appsrv::ServerApi &api):
         api(api),
+        module(find_module(api.config, api.interface_config["module"].asString())),
         log(l::getLogger(api.handler_name)),
         rpc_api(json, api, log),
-        module(find_module(api.config, api.interface_config["module"].asString())),
         module_data(nullptr)
     {
         // Init the library
@@ -101,7 +99,6 @@ public:
                 I begin1 = begin;
                 I end1 = end;
                 while ((call = gcm::json::parse(begin1, end1)) != nullptr) {
-                    DEBUG(log) << "Parsed: " << call->to_string();
                     end1 = end;
 
                     auto &obj = gcm::json::to<gcm::json::Object>(call);
