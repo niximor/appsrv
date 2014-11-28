@@ -33,8 +33,6 @@
 #include <gcm/thread/signal.h>
 #include "interface.h"
 
-#include "interface.h"
-
 namespace s = gcm::socket;
 namespace l = gcm::logging;
 namespace c = gcm::config;
@@ -62,6 +60,15 @@ protected:
     bool quit;
 };
 
+namespace gcm {
+namespace appsrv {
+
+const std::string get_version() {
+    return "0.0.1";
+}
+
+}
+}
 
 int main(int, char *argv[]) {
 	std::string appname{gcm::io::basename(argv[0])};

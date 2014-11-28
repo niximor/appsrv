@@ -81,5 +81,10 @@ public:
     virtual ~Handler();
 };
 
+/**
+ * Return server version.
+ */
+extern const std::string get_version();
+
 }
 }

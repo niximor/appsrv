@@ -111,7 +111,7 @@ protected:
 class HeaderSet: public std::vector<HttpHeader> {
 public:
     template<typename T>
-    void write(T &&stream) {
+    void write(T &&stream) const {
         stream << (std::string)(*this);
     }
 
@@ -135,7 +135,7 @@ public:
         return false;
     }
 
-    operator std::string() {
+    operator std::string() const {
         std::stringstream ss;
 
         for (auto &header: (*this)) {
@@ -144,6 +144,10 @@ public:
         ss << CrLf;
 
         return ss.str();
+    }
+
+    std::string to_string() const {
+        return std::string(*this);
     }
 };
 
@@ -246,7 +250,7 @@ public:
             if (version.compare_to(1, 1) >= 0) {
                 // Connection header.
                 if (!has_header("Content-Length")) {
-                    set_header("Connection", "Close");
+                    set_header("Connection", "close");
                 }
             }
 
@@ -413,11 +417,11 @@ public:
     HttpResponse<T> get_response(T &&stream) {
         auto resp = HttpResponse<T>{*this, std::forward<T>(stream)};
 
-        resp.set_header("Server", "GCM::AppSrv");
+        resp.set_header("Server", "GCM::HTTP");
 
         // HTTP/1.1 supports keep-alive connections.
         if (get_version().compare_to(1, 1) >= 0) {
-            if (!has_header("Content-Length")) {
+            if (!has_header("Content-Length") || (*this)["Connection"] != "keep-alive") {
                 resp.set_header("Connection", "close");
             } else {
                 resp.set_header("Connection", "keep-alive");

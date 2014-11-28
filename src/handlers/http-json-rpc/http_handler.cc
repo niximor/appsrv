@@ -126,7 +126,7 @@ public:
                     DEBUG(log) << "             " << spaces << "^";
                 }
 
-                bool know_length = promises.size() < 2;
+                bool know_length = promises.size() <= 1;
 
                 DEBUG(log) << "Waiting for all promises to be done.";
                 gcm::json::rpc::wait_all(promises, [&](gcm::json::rpc::Promise &p){
@@ -171,22 +171,35 @@ public:
         try {
             client << s::ascii;
 
-            HttpRequest req;
-            req.parse(client);
+            bool close = true;
+            do {
+                HttpRequest req;
+                req.parse(client);
 
-            auto response = req.get_response(client);
-            response.set_header("Content-Type", "application/json");
+                auto response = req.get_response(client);
+                response.set_header("Server", "GCM::JsonRpc Server " + gcm::appsrv::get_version());
+                response.set_header("Content-Type", "application/json");
 
-            if (!req.has_header("Content-Length")) {
-                throw HttpException(400);
-            }
+                if (!req.has_header("Content-Length")) {
+                    throw HttpException(400);
+                }
 
-            std::string body;
-            body.reserve(std::stoi(req["Content-Length"]));
+                std::string body;
+                body.reserve(std::stoi(req["Content-Length"]));
 
-            client >> body;
+                client >> body;
 
-            process_body(response, body.begin(), body.end());
+                process_body(response, body.begin(), body.end());
+
+                /*DEBUG(log) << "Request headers:";
+                DEBUG(log) << std::string(req.get_headers());
+                DEBUG(log) << "Response headers:";
+                DEBUG(log) << std::string(response.get_headers());*/
+
+                if (response["Connection"] == "keep-alive") {
+                    close = false;
+                }
+            } while (!close);
 
             /*response << "Hello world!<br />";
             response << "Interface " << api.handler_name << " statistics: <br />";
