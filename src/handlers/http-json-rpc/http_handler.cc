@@ -128,7 +128,6 @@ public:
 
                 bool know_length = promises.size() <= 1;
 
-                DEBUG(log) << "Waiting for all promises to be done.";
                 gcm::json::rpc::wait_all(promises, [&](gcm::json::rpc::Promise &p){
                     auto resp = p.get();
                     std::string out{resp->to_string()};
@@ -140,7 +139,6 @@ public:
                     response << out;
                     return true;
                 });
-                DEBUG(log) << "All promises are done.";
             } catch (gcm::json::rpc::RpcException &e) {
                 throw;
             } catch (gcm::json::Exception &e) {

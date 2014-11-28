@@ -25,13 +25,19 @@
 
 #include <string>
 #include <vector>
+#include <memory>
+
+#include "../json.h"
 
 namespace gcm {
 namespace json {
 namespace validator {
 
 enum class ProblemCode {
-    WrongType, CannotBeNull, MustBePresent, UnexpectedParam
+    WrongType = 401,
+    CannotBeNull = 402,
+    MustBePresent = 403,
+    UnexpectedParam = 404
 };
 
 class Problem {
@@ -42,14 +48,30 @@ public:
         description(description)
     {}
 
+    JsonValue to_json() const {
+        auto obj = Object();
+
+        obj["item"] = make_string(item);
+        obj["code"] = make_int(static_cast<int>(code));
+        obj["description"] = make_string(description);
+
+        return std::make_shared<Object>(std::move(obj));
+    }
+
 protected:
     const std::string item;
     ProblemCode code;
     const std::string description;
 };
 
-class Diagnostics: public std::exception {
+class Diagnostics: public json::Exception {
 public:
+    Diagnostics(): json::Exception("There were errors processing your request.")
+    {}
+
+    Diagnostics(Diagnostics &&) = default;
+    Diagnostics(const Diagnostics &) = default;
+
     void add_problem(Problem &&problem) {
         problems.emplace_back(std::forward<Problem>(problem));
     }
@@ -60,6 +82,10 @@ public:
             code,
             description
         );
+    }
+
+    const std::vector<Problem> &get_problems() {
+        return problems;
     }
 
 protected:

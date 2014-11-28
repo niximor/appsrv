@@ -61,17 +61,31 @@ public:
     {}
 
     JsonValue operator()(Array &p) {
-        params.validate(p);
-        auto out = method(p);
+        try {
+            params.validate(p);
+            auto out = method(p);
 
-        // Validate result of function
-        validator::Diagnostics diag;
-        auto res = result(diag, out);
-        if (!res) {
-            throw diag;
+            // Validate result of function
+            validator::Diagnostics diag;
+            auto res = result(diag, out);
+            if (!res) {
+                throw diag;
+            }
+
+            return out;
+        } catch (validator::Diagnostics &diag) {
+            json::Array array;
+
+            for (auto &problem: diag.get_problems()) {
+                array.push_back(problem.to_json());
+            }
+
+            throw RpcException(
+                ErrorCode::InvalidParams,
+                diag.what(),
+                std::make_shared<Array>(std::move(array))
+            );
         }
-
-        return out;
     }
 
 protected:

@@ -32,28 +32,110 @@ namespace rpc {
 
 class RpcException: public Exception {
 public:
-    RpcException(std::string message):
-        Exception(message), code(static_cast<int>(ErrorCode::InternalError)), request_id(make_null())
+    RpcException(std::string &&message):
+        RpcException(
+            make_null(),
+            ErrorCode::InternalError,
+            std::forward<std::string>(message),
+            make_null()
+        )
     {}
 
-    RpcException(int code, std::string message):
-        Exception(message), code(code), request_id(make_null())
+    RpcException(std::string &&message, JsonValue &&data):
+        RpcException(
+            make_null(),
+            ErrorCode::InternalError,
+            std::forward<std::string>(message),
+            std::forward<JsonValue>(data)
+        )
     {}
 
-    RpcException(ErrorCode code, std::string message):
-        Exception(message), code(static_cast<int>(code)), request_id(make_null())
+    RpcException(int code, std::string &&message):
+        RpcException(
+            make_null(),
+            code,
+            std::forward<std::string>(message),
+            make_null()
+        )
     {}
 
-    RpcException(JsonValue request_id, int code, std::string message):
-        Exception(message), code(code), request_id(request_id)
+    RpcException(int code, std::string &&message, JsonValue &&data):
+        RpcException(
+            make_null(),
+            code,
+            std::forward<std::string>(message),
+            std::forward<JsonValue>(data)
+        )
     {}
 
-    RpcException(JsonValue request_id, ErrorCode code, std::string message):
-        Exception(message), code(static_cast<int>(code)), request_id(request_id)
+    RpcException(ErrorCode code, std::string &&message):
+        RpcException(
+            make_null(),
+            code,
+            std::forward<std::string>(message),
+            make_null()
+        )
     {}
 
-    RpcException(JsonValue request_id, std::string message):
-        Exception(message), code(static_cast<int>(ErrorCode::InternalError)), request_id(request_id)
+    RpcException(ErrorCode code, std::string &&message, JsonValue &&data):
+        RpcException(
+            make_null(),
+            code,
+            std::forward<std::string>(message),
+            std::forward<JsonValue>(data)
+        )
+    {}
+
+    RpcException(JsonValue &&request_id, std::string &&message):
+        RpcException(
+            std::forward<JsonValue>(request_id),
+            ErrorCode::InternalError,
+            std::forward<std::string>(message),
+            make_null()
+        )
+    {}
+
+    RpcException(JsonValue &&request_id, std::string &&message, JsonValue &&data):
+        RpcException(
+            std::forward<JsonValue>(request_id),
+            ErrorCode::InternalError,
+            std::forward<std::string>(message),
+            std::forward<JsonValue>(data)
+        )
+    {}
+
+    RpcException(JsonValue &&request_id, ErrorCode code, std::string &&message):
+        RpcException(
+            std::forward<JsonValue>(request_id),
+            code,
+            std::forward<std::string>(message),
+            make_null()
+        )
+    {}
+
+    RpcException(JsonValue &&request_id, ErrorCode code, std::string &&message, JsonValue &&data):
+        RpcException(
+            std::forward<JsonValue>(request_id),
+            static_cast<int>(code),
+            std::forward<std::string>(message),
+            std::forward<JsonValue>(data)
+        )
+    {}
+
+    RpcException(JsonValue &&request_id, int code, std::string &&message):
+        RpcException(
+            std::forward<JsonValue>(request_id),
+            code,
+            std::forward<std::string>(message),
+            make_null()
+        )
+    {}
+
+    RpcException(JsonValue &&request_id, int code, std::string &&message, JsonValue &&data):
+        Exception(std::forward<std::string>(message)),
+        code(code),
+        request_id(std::forward<JsonValue>(request_id)),
+        data(std::forward<JsonValue>(data))
     {}
 
     int get_code() const {
@@ -69,16 +151,21 @@ public:
         err["code"] = make_int(code);
         err["message"] = make_string(this->what());
 
+        if (!data->is_null()) {
+            err["data"] = data;
+        }
+
         if (full_resp) {
-            return std::make_shared<Object>(obj);
+            return std::make_shared<Object>(std::move(obj));
         } else {
-            return std::make_shared<Object>(err);
+            return std::make_shared<Object>(std::move(err));
         }
     }
 
 protected:
     int code;
     JsonValue request_id;
+    JsonValue data;
 };
 
 class MethodNotFound: public RpcException {
@@ -86,8 +173,8 @@ public:
     MethodNotFound(std::string name): RpcException(ErrorCode::MethodNotFound, "Method " + name + " not found.")
     {}
 
-    MethodNotFound(JsonValue request_id, std::string name):
-        RpcException(request_id, ErrorCode::MethodNotFound, "Method " + name + " not found.")
+    MethodNotFound(JsonValue &&request_id, std::string name):
+        RpcException(std::forward<JsonValue>(request_id), ErrorCode::MethodNotFound, "Method " + name + " not found.")
     {}
 };
 

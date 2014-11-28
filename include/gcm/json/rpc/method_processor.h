@@ -55,10 +55,11 @@ public:
         try {
             auto it = registry.find(method);
             if (it == registry.end()) {
-                throw MethodNotFound(request_id, method);
+                throw MethodNotFound(std::forward<JsonValue>(request_id), method);
             }
 
-            DEBUG(log) << "Calling method " << method << ".";
+            std::string str_params = params.to_string();
+            DEBUG(log) << "Calling method " << method << "(" << str_params.substr(1, str_params.size() - 2) << ").";
 
             auto &result = response["result"];
             result = it->second(params);

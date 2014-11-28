@@ -351,6 +351,9 @@ inline std::string genhelp(const std::string &method_name, const std::string &de
     params.map([&](auto &param){
         detail::gen_param(ss, 1, longest, param);
     });
+    if (params.empty()) {
+        ss << detail::IndentStr << "None.";
+    }
 
     return ss.str();
 }
@@ -376,6 +379,9 @@ inline std::string genhelp(const std::string &method_name, const std::string &de
     params.map([&](auto &param){
         detail::gen_param(ss, 1, longest, param);
     });
+    if (params.empty()) {
+        ss << detail::IndentStr << "None.\n";
+    }
 
     ss << "\nResult:\n\n";
     

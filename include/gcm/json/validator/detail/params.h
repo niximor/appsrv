@@ -25,6 +25,8 @@
 
 #include "types.h"
 
+#include <iostream>
+
 namespace gcm {
 namespace json {
 namespace validator {
@@ -33,11 +35,15 @@ namespace detail {
 template <typename... Args>
 class ParamDefinitions_t: public Mappable {
 public:
-    ParamDefinitions_t(Args... params): params(std::forward_as_tuple(params...)), num_args(sizeof...(params))
+    explicit ParamDefinitions_t(Args... params): params(std::forward_as_tuple(params...)), num_args(sizeof...(params))
     {}
 
+    ParamDefinitions_t(ParamDefinitions_t &&) = default;
+    ParamDefinitions_t(const ParamDefinitions_t &) = default;
+
     bool validate(json::Array &value) {
-        auto res = call_func(value.begin(), value.end(), std::index_sequence_for<Args...>{});
+        Diagnostics diag;
+        auto res = call_func(diag, value.begin(), value.end(), std::index_sequence_for<Args...>{});
         if (!res) {
             throw diag;
         }
@@ -49,34 +55,41 @@ public:
         int_map(call, std::index_sequence_for<Args...>{});
     }
 
+    std::size_t size() {
+        return num_args;
+    }
+
+    bool empty() {
+        return num_args == 0;
+    }
+
 protected:
     std::tuple<Args...> params;
     std::size_t num_args;
     std::size_t actual_args;
-    Diagnostics diag;
 
     template<typename I, typename Head, typename... Tail>
-    bool int_validator(I begin, I end, Head head, Tail... tail) {
+    bool int_validator(Diagnostics &diag, I begin, I end, Head head, Tail... tail) {
         // Argument missing (no more items in array)
         if (begin == end) {
             diag.add_problem(head.get_item(), ProblemCode::MustBePresent, "Missing argument for function.");
 
             // Validate rest to generate missing arguments for all other arguments.
-            int_validator(begin, end, tail...);
-
+            int_validator(diag, begin, end, tail...);
             return false;
-
         } else {
-            // Try to validate this argument
-            return
-                head(diag, *begin)
-                && int_validator(begin + 1, end, tail...);
+            // Try to validate this argument. If that fails, continune with validation
+            // on the rest of the arguments to generate as much error messages as possible.
+            bool res_head = head(diag, *begin);
+            bool res_tail = int_validator(diag, begin + 1, end, tail...);
+            return res_head && res_tail;
         }
     }
 
     template<typename I>
-    bool int_validator(I begin, I end) {
+    bool int_validator(Diagnostics &diag, I begin, I end) {
         if (begin != end) {
+            // Too many arguments for function.
             diag.add_problem("", ProblemCode::UnexpectedParam,
                 "Function accepts " + std::to_string(num_args) + " arguments, " + std::to_string(actual_args) + " given.");
             return false;
@@ -86,9 +99,9 @@ protected:
     }
 
     template<typename Iterator, std::size_t ...I>
-    bool call_func(Iterator begin, Iterator end, std::index_sequence<I...>) {
+    bool call_func(Diagnostics &diag, Iterator begin, Iterator end, std::index_sequence<I...>) {
         actual_args = std::distance(begin, end);
-        return int_validator(begin, end, std::get<I>(params)...);
+        return int_validator(diag, begin, end, std::get<I>(params)...);
     }
 
     template<typename T, std::size_t... I>
