@@ -37,6 +37,15 @@ namespace rpc {
 using Method = JsonValue(Array &params);
 using MethodRegistry = std::map<std::string, std::function<Method>>;
 
+enum class ErrorCode {
+    ParseError = -32700,
+    InvalidRequest = -32600,
+    MethodNotFound = -32601,
+    InvalidParams = -32602,
+    InternalError = -32603,
+    ServerError = -32000
+};
+
 } // namespace rpc
 } // namespace json
 } // namespace gcm

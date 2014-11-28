@@ -68,14 +68,14 @@ public:
             response["error"] = e.to_json(false);
         } catch (std::exception &e) {
             auto &error = to<Object>(response["error"] = make_object());
-            error["code"] = make_int(-32603);
+            error["code"] = make_int(ErrorCode::InternalError);
             error["message"] = make_string(e.what());
         } catch (...) {
             auto &error = to<Object>(response["error"] = make_object());
-            error["code"] = make_int(-32603);
+            error["code"] = make_int(ErrorCode::InternalError);
             error["message"] = make_string("Server error.");
         }
-        
+
         // Notify of job done.
         promise->result = std::make_shared<Object>(response);
         promise->has_result = true;

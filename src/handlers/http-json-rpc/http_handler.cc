@@ -128,6 +128,7 @@ public:
 
                 bool know_length = promises.size() < 2;
 
+                DEBUG(log) << "Waiting for all promises to be done.";
                 gcm::json::rpc::wait_all(promises, [&](gcm::json::rpc::Promise &p){
                     auto resp = p.get();
                     std::string out{resp->to_string()};
@@ -139,10 +140,11 @@ public:
                     response << out;
                     return true;
                 });
+                DEBUG(log) << "All promises are done.";
             } catch (gcm::json::rpc::RpcException &e) {
                 throw;
             } catch (gcm::json::Exception &e) {
-                throw gcm::json::rpc::RpcException(-32603, e.what());
+                throw gcm::json::rpc::RpcException(gcm::json::rpc::ErrorCode::InternalError, e.what());
             }
         } catch (gcm::json::rpc::RpcException &e) {
             response << e.to_json()->to_string();
@@ -152,7 +154,7 @@ public:
             auto obj = gcm::json::Object();
             obj["id"] = gcm::json::make_null();
             auto err = gcm::json::to<gcm::json::Object>(obj["error"] = gcm::json::make_object());
-            err["code"] = gcm::json::make_int(-32603);
+            err["code"] = gcm::json::make_int(gcm::json::rpc::ErrorCode::InternalError);
             err["message"] = gcm::json::make_string(e.what());
 
             response << obj.to_string();

@@ -24,6 +24,7 @@
 #pragma once
 
 #include "../json.h"
+#include "types.h"
 
 namespace gcm {
 namespace json {
@@ -32,19 +33,27 @@ namespace rpc {
 class RpcException: public Exception {
 public:
     RpcException(std::string message):
-        Exception(message), code(-32603), request_id(make_null())
+        Exception(message), code(static_cast<int>(ErrorCode::InternalError)), request_id(make_null())
     {}
 
     RpcException(int code, std::string message):
         Exception(message), code(code), request_id(make_null())
     {}
 
+    RpcException(ErrorCode code, std::string message):
+        Exception(message), code(static_cast<int>(code)), request_id(make_null())
+    {}
+
     RpcException(JsonValue request_id, int code, std::string message):
         Exception(message), code(code), request_id(request_id)
     {}
 
+    RpcException(JsonValue request_id, ErrorCode code, std::string message):
+        Exception(message), code(static_cast<int>(code)), request_id(request_id)
+    {}
+
     RpcException(JsonValue request_id, std::string message):
-        Exception(message), code(-32603), request_id(request_id)
+        Exception(message), code(static_cast<int>(ErrorCode::InternalError)), request_id(request_id)
     {}
 
     int get_code() const {
@@ -74,11 +83,11 @@ protected:
 
 class MethodNotFound: public RpcException {
 public:
-    MethodNotFound(std::string name): RpcException(-32601, "Method " + name + " not found.")
+    MethodNotFound(std::string name): RpcException(ErrorCode::MethodNotFound, "Method " + name + " not found.")
     {}
 
     MethodNotFound(JsonValue request_id, std::string name):
-        RpcException(request_id, -32601, "Method " + name + " not found.")
+        RpcException(request_id, ErrorCode::MethodNotFound, "Method " + name + " not found.")
     {}
 };
 

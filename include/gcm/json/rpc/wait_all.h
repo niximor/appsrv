@@ -43,25 +43,27 @@ inline void wait_all(std::vector<std::shared_ptr<Promise>> promises, PromiseDone
         p->notify_done = &cv;
     }
 
+    auto &log = gcm::logging::getLogger("debug");
+
+    bool changed = false;
     while (!promises.empty()) {
-        bool changed = true;
-        while (changed) {
-            changed = false;
+        changed = false;
 
-            for (auto it = promises.begin(); it != promises.end(); ++it) {
-                if ((*it)->try_wait()) {
-                    // Promise has work done.
-                    done(**it);
+        for (auto it = promises.begin(); it != promises.end(); ++it) {
+            if ((*it)->try_wait()) {
+                // Promise has work done.
+                done(**it);
 
-                    promises.erase(it);
-                    changed = true;
-                    break;
-                }
+                promises.erase(it);
+                changed = true;
+                break;
             }
         }
 
-        std::unique_lock<std::mutex> lock(m);
-        cv.wait(lock);
+        if (!changed) {
+            std::unique_lock<std::mutex> lock(m);
+            cv.wait(lock);
+        }
     }
 }
 

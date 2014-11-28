@@ -111,7 +111,11 @@ public:
                 ss << ",";
             }
 
-            ss << "\"" << it->first << "\":" << it->second->to_string();
+            if (it->second) {
+                ss << "\"" << it->first << "\":" << it->second->to_string();
+            } else {
+                ss << "\"" << it->first << "\":null";
+            }
         }
 
         ss << "}";
@@ -300,39 +304,49 @@ inline std::shared_ptr<Value> make_object(Head head) {
     return obj;
 }
 
-inline std::shared_ptr<Value> make_object() {
+using JsonValue = std::shared_ptr<Value>;
+
+inline JsonValue make_object() {
     return std::make_shared<Object>();
 }
 
-inline std::shared_ptr<Value> make_array() {
+inline JsonValue make_array() {
     return std::make_shared<Array>();
 }
 
-inline std::shared_ptr<Value> make_array(std::initializer_list<std::shared_ptr<Value>> values) {
+inline JsonValue make_array(std::initializer_list<std::shared_ptr<Value>> values) {
     return std::make_shared<Array>(values);
 }
 
-inline std::shared_ptr<Value> make_int(int value) {
-    return std::make_shared<Int>(value);
+template<typename T>
+std::enable_if_t<std::is_convertible<T, int>::value, JsonValue>
+make_int(T value) {
+    return std::make_shared<Int>(static_cast<int>(value));
 }
 
-inline std::shared_ptr<Value> make_double(double value) {
-    return std::make_shared<Double>(value);
+template<typename T>
+std::enable_if_t<std::is_enum<T>::value, JsonValue>
+make_int(T value) {
+    return std::make_shared<Int>(static_cast<int>(value));
 }
 
-inline std::shared_ptr<Value> make_string(std::string &&value) {
+template<typename T>
+std::enable_if_t<std::is_convertible<T, double>::value, JsonValue>
+make_double(T value) {
+    return std::make_shared<Double>(static_cast<double>(value));
+}
+
+inline JsonValue make_string(std::string &&value) {
     return std::make_shared<String>(std::forward<std::string>(value));
 }
 
-inline std::shared_ptr<Value> make_string(const std::string &value) {
+inline JsonValue make_string(const std::string &value) {
     return std::make_shared<String>(value);
 }
 
-inline std::shared_ptr<Value> make_bool(bool value) {
+inline JsonValue make_bool(bool value) {
     return std::make_shared<Bool>(value);
 }
-
-using JsonValue = std::shared_ptr<Value>;
 
 } // namespace json
 } // namespace gcm
