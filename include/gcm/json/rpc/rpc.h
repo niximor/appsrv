@@ -42,7 +42,12 @@ namespace rpc {
 class Rpc {
 public:
     Rpc():
-        on_sigint(gcm::thread::Signal::at(SIGINT, std::bind(&Rpc::stop, this)))
+        Rpc(gcm::logging::getLogger("json-rpc"))
+    {}
+
+    Rpc(gcm::logging::Logger &log):
+        on_sigint(gcm::thread::Signal::at(SIGINT, std::bind(&Rpc::stop, this))),
+        log(log)
     {
         using namespace std::placeholders;
         namespace v = validator;
@@ -72,6 +77,7 @@ public:
         auto p = std::make_shared<Promise>();
 
         pool.add_work(detail::MethodProcessor(
+            log,
             methods,
             p,
             request_id,
@@ -85,35 +91,41 @@ public:
     void register_method(const std::string &name, std::function<Method> callback) {
         methods[name] = callback;
         help[name] = validator::genhelp(name, "");
+        INFO(log) << "Registered method " << name << ".";
     }
 
     void register_method(const std::string &name, std::function<Method> callback, const std::string &desc) {
         methods[name] = callback;
         help[name] = validator::genhelp(name, desc);
+        INFO(log) << "Registered method " << name << ".";
     }
 
     template<typename T>
     void register_method(const std::string &name, std::function<Method> callback, T params) {
         methods[name] = detail::SafeCallback(callback, params);
         help[name] = validator::genhelp(name, "", params);
+        INFO(log) << "Registered method " << name << ".";
     }
 
     template<typename T>
     void register_method(const std::string &name, std::function<Method> callback, const std::string &desc, T params) {
         methods[name] = detail::SafeCallback(callback, params);
         help[name] = validator::genhelp(name, desc, params);
+        INFO(log) << "Registered method " << name << ".";
     }
 
     template<typename T, typename R>
     void register_method(const std::string &name, std::function<Method> callback, T params, R result) {
         methods[name] = detail::SafeCallback(callback, params, result);
         help[name] = validator::genhelp(name, "", params, result);
+        INFO(log) << "Registered method " << name << ".";
     }
 
     template<typename T, typename R>
     void register_method(const std::string &name, std::function<Method> callback, const std::string &desc, T params, R result) {
         methods[name] = detail::SafeCallback(callback, params, result);
         help[name] = validator::genhelp(name, desc, params, result);
+        INFO(log) << "Registered method " << name << ".";
     }
 
 protected:
@@ -144,6 +156,8 @@ protected:
 
     gcm::thread::Pool<detail::MethodProcessor> pool;
     gcm::thread::SignalBind on_sigint;
+
+    gcm::logging::Logger &log;
 };
 
 } // namespace gcm

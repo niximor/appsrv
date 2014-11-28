@@ -58,8 +58,8 @@ class JsonHttpHandler: public gcm::appsrv::Handler {
 protected:
     gcm::appsrv::ServerApi &api;
     gcm::dl::Library module;
-    gcm::json::rpc::Rpc json;
     gcm::logging::Logger &log;
+    gcm::json::rpc::Rpc json;
     gcm::json::rpc::RpcApi rpc_api;
     
     void *module_data;
@@ -69,6 +69,7 @@ public:
         api(api),
         module(find_module(api.config, api.interface_config["module"].asString())),
         log(l::getLogger(api.handler_name)),
+        json(log),
         rpc_api(json, api, log),
         module_data(nullptr)
     {

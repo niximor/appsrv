@@ -37,7 +37,8 @@ namespace detail {
 
 class MethodProcessor {
 public:
-    MethodProcessor(MethodRegistry &registry, std::shared_ptr<Promise> promise, JsonValue request_id, std::string &&method, Array &&params):
+    MethodProcessor(gcm::logging::Logger &log, MethodRegistry &registry, std::shared_ptr<Promise> promise, JsonValue request_id, std::string &&method, Array &&params):
+        log(log),
         registry(registry),
         promise(promise),
         request_id(request_id),
@@ -46,8 +47,6 @@ public:
     {}
 
     void operator()() {
-        auto &log = gcm::logging::getLogger("json-rpc");
-
         auto response = Object();
         response["jsonrpc"] = make_string("2.0");
         response["id"] = request_id;
@@ -59,12 +58,10 @@ public:
             }
 
             std::string str_params = params.to_string();
-            DEBUG(log) << "Calling method " << method << "(" << str_params.substr(1, str_params.size() - 2) << ").";
+            INFO(log) << "Calling method " << method << "(" << str_params.substr(1, str_params.size() - 2) << ").";
 
             auto &result = response["result"];
             result = it->second(params);
-
-            DEBUG(log) << "Method " << method << " succeeded.";
         } catch (RpcException &e) {
             response["error"] = e.to_json(false);
         } catch (std::exception &e) {
@@ -89,6 +86,7 @@ public:
     }
 
 protected:
+    gcm::logging::Logger &log;
     MethodRegistry &registry;
     std::shared_ptr<Promise> promise;
     JsonValue request_id;
