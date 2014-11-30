@@ -17,4 +17,5 @@ public:
 
 protected:
     gcm::json::rpc::RpcApi &server;
+    gcm::logging::Logger &log;
 };

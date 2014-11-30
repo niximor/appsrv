@@ -36,7 +36,7 @@ namespace detail {
 template<typename T>
 class SafeCallback_t {
 public:
-    SafeCallback_t(std::function<Method> method, T params):
+    SafeCallback_t(gcm::logging::Logger &, std::function<Method> method, const std::string &, T params):
         method(method),
         params(params)
     {}
@@ -54,8 +54,10 @@ protected:
 template<typename T, typename R>
 class SafeCallbackR_t {
 public:
-    SafeCallbackR_t(std::function<Method> method, T params, R result):
+    SafeCallbackR_t(gcm::logging::Logger &log, std::function<Method> method, const std::string &method_name, T params, R result):
+        log(log),
         method(method),
+        method_name(method_name),
         params(params),
         result(result)
     {}
@@ -69,7 +71,13 @@ public:
             validator::Diagnostics diag;
             auto res = result(diag, out);
             if (!res) {
-                throw diag;
+                ERROR(log) << "Method " << method_name << " returned invalid result:";
+                for (auto &problem: diag.get_problems()) {
+                    ERROR(log) << problem.get_item() << ": " << problem.get_description();
+                }
+
+                throw RpcException(ErrorCode::InternalError, "Function returned unexpected result.");
+                //throw diag;
             }
 
             return out;
@@ -89,19 +97,21 @@ public:
     }
 
 protected:
+    gcm::logging::Logger &log;
     std::function<Method> method;
+    std::string method_name;
     T params;
     R result;
 };
 
 template<typename T>
-auto SafeCallback(std::function<Method> method, T params) {
-    return SafeCallback_t<T>(method, params);
+auto SafeCallback(gcm::logging::Logger &log, std::function<Method> method, const std::string &method_name, T params) {
+    return SafeCallback_t<T>(log, method, method_name, params);
 }
 
 template<typename T, typename R>
-auto SafeCallback(std::function<Method> method, T params, R result) {
-    return SafeCallbackR_t<T, R>(method, params, result);
+auto SafeCallback(gcm::logging::Logger &log, std::function<Method> method, const std::string &method_name, T params, R result) {
+    return SafeCallbackR_t<T, R>(log, method, method_name, params, result);
 }
 
 } // namespace detail

@@ -25,6 +25,8 @@
 
 #include <memory>
 #include <string>
+#include <chrono>
+#include <iomanip>
 
 #include "../json.h"
 #include "types.h"
@@ -47,9 +49,16 @@ public:
     {}
 
     void operator()() {
+        std::chrono::high_resolution_clock::time_point tm_start = std::chrono::high_resolution_clock::now();
+
         auto response = Object();
         response["jsonrpc"] = make_string("2.0");
         response["id"] = request_id;
+
+        bool is_success = true;
+
+        std::string str_params = params.to_string();
+        INFO(log) << "Calling method " << method << "(" << str_params.substr(1, str_params.size() - 2) << ").";
 
         try {
             auto it = registry.find(method);
@@ -57,22 +66,45 @@ public:
                 throw MethodNotFound(std::forward<JsonValue>(request_id), method);
             }
 
-            std::string str_params = params.to_string();
-            INFO(log) << "Calling method " << method << "(" << str_params.substr(1, str_params.size() - 2) << ").";
-
             auto &result = response["result"];
             result = it->second(params);
         } catch (RpcException &e) {
+            is_success = false;
             response["error"] = e.to_json(false);
         } catch (std::exception &e) {
+            is_success = false;
             auto &error = to<Object>(response["error"] = make_object());
             error["code"] = make_int(ErrorCode::InternalError);
             error["message"] = make_string(e.what());
         } catch (...) {
+            is_success = false;
             auto &error = to<Object>(response["error"] = make_object());
             error["code"] = make_int(ErrorCode::InternalError);
             error["message"] = make_string("Server error.");
         }
+
+        std::chrono::microseconds method_duration =
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - tm_start);
+
+        std::string str_status;
+        if (is_success) {
+            str_status = "OK";
+        } else {
+            int code = to<Int>(to<Object>(response["error"])["code"]);
+            switch (code) {
+                case static_cast<int>(ErrorCode::ParseError): str_status = "ParseError"; break;
+                case static_cast<int>(ErrorCode::InvalidRequest): str_status = "InvalidRequest"; break;
+                case static_cast<int>(ErrorCode::MethodNotFound): str_status = "MethodNotFound"; break;
+                case static_cast<int>(ErrorCode::InvalidParams): str_status = "InvalidParams"; break;
+                case static_cast<int>(ErrorCode::InternalError): str_status = "InternalError"; break;
+                case static_cast<int>(ErrorCode::ServerError): str_status = "ServerError"; break;
+                default: str_status = std::to_string(code); break;
+            }
+        }
+
+        INFO(log) << method << "(" << str_params.substr(1, str_params.size() - 2) << ") "
+            << "status=" << str_status << "; "
+            << "time=" << std::setprecision(3) << (method_duration.count() / 1000.0) << "ms";
 
         // Notify of job done.
         promise->result = std::make_shared<Object>(response);

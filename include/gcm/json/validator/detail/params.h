@@ -43,7 +43,10 @@ public:
 
     bool validate(json::Array &value) {
         Diagnostics diag;
-        auto res = call_func(diag, value.begin(), value.end(), std::index_sequence_for<Args...>{});
+        auto begin = value.begin();
+        auto end = value.end();
+
+        auto res = call_func(diag, value, begin, end, std::index_sequence_for<Args...>{});
         if (!res) {
             throw diag;
         }
@@ -69,25 +72,28 @@ protected:
     std::size_t actual_args;
 
     template<typename I, typename Head, typename... Tail>
-    bool int_validator(Diagnostics &diag, I begin, I end, Head head, Tail... tail) {
+    bool int_validator(Diagnostics &diag, json::Array &value, I &begin, I &end, Head head, Tail... tail) {
         // Argument missing (no more items in array)
         if (begin == end) {
-            diag.add_problem(head.get_item(), ProblemCode::MustBePresent, "Missing argument for function.");
+            // TODO: Append empty value (nullptr).
+            value.push_back(nullptr);
+            begin = value.end() - 1;
+            end = value.end();
+            actual_args++;
 
-            // Validate rest to generate missing arguments for all other arguments.
-            int_validator(diag, begin, end, tail...);
-            return false;
-        } else {
-            // Try to validate this argument. If that fails, continune with validation
-            // on the rest of the arguments to generate as much error messages as possible.
-            bool res_head = head(diag, *begin);
-            bool res_tail = int_validator(diag, begin + 1, end, tail...);
-            return res_head && res_tail;
+            //diag.add_problem(head.get_item(), ProblemCode::MustBePresent, "Missing argument for function.");
         }
+
+        // Try to validate this argument. If that fails, continune with validation
+        // on the rest of the arguments to generate as much error messages as possible.
+        bool res_head = head(diag, *begin);
+        ++begin;
+        bool res_tail = int_validator(diag, value, begin, end, tail...);
+        return res_head && res_tail;
     }
 
     template<typename I>
-    bool int_validator(Diagnostics &diag, I begin, I end) {
+    bool int_validator(Diagnostics &diag, json::Array &, I &begin, I &end) {
         if (begin != end) {
             // Too many arguments for function.
             diag.add_problem("", ProblemCode::UnexpectedParam,
@@ -99,9 +105,9 @@ protected:
     }
 
     template<typename Iterator, std::size_t ...I>
-    bool call_func(Diagnostics &diag, Iterator begin, Iterator end, std::index_sequence<I...>) {
+    bool call_func(Diagnostics &diag, json::Array &value, Iterator &begin, Iterator &end, std::index_sequence<I...>) {
         actual_args = std::distance(begin, end);
-        return int_validator(diag, begin, end, std::get<I>(params)...);
+        return int_validator(diag, value, begin, end, std::get<I>(params)...);
     }
 
     template<typename T, std::size_t... I>

@@ -58,6 +58,18 @@ public:
         return std::make_shared<Object>(std::move(obj));
     }
 
+    const std::string &get_item() const {
+        return item;
+    }
+
+    ProblemCode get_code() const {
+        return code;
+    }
+
+    const std::string &get_description() const {
+        return description;
+    }
+
 protected:
     const std::string item;
     ProblemCode code;
@@ -86,6 +98,10 @@ public:
 
     const std::vector<Problem> &get_problems() {
         return problems;
+    }
+
+    operator bool() {
+        return !problems.empty();
     }
 
 protected:

@@ -102,28 +102,28 @@ public:
 
     template<typename T>
     void register_method(const std::string &name, std::function<Method> callback, T params) {
-        methods[name] = detail::SafeCallback(callback, params);
+        methods[name] = detail::SafeCallback(log, callback, name, params);
         help[name] = validator::genhelp(name, "", params);
         INFO(log) << "Registered method " << name << ".";
     }
 
     template<typename T>
     void register_method(const std::string &name, std::function<Method> callback, const std::string &desc, T params) {
-        methods[name] = detail::SafeCallback(callback, params);
+        methods[name] = detail::SafeCallback(log, callback, name, params);
         help[name] = validator::genhelp(name, desc, params);
         INFO(log) << "Registered method " << name << ".";
     }
 
     template<typename T, typename R>
     void register_method(const std::string &name, std::function<Method> callback, T params, R result) {
-        methods[name] = detail::SafeCallback(callback, params, result);
+        methods[name] = detail::SafeCallback(log, callback, name, params, result);
         help[name] = validator::genhelp(name, "", params, result);
         INFO(log) << "Registered method " << name << ".";
     }
 
     template<typename T, typename R>
     void register_method(const std::string &name, std::function<Method> callback, const std::string &desc, T params, R result) {
-        methods[name] = detail::SafeCallback(callback, params, result);
+        methods[name] = detail::SafeCallback(log, callback, name, params, result);
         help[name] = validator::genhelp(name, desc, params, result);
         INFO(log) << "Registered method " << name << ".";
     }

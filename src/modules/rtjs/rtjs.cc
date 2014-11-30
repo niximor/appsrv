@@ -11,7 +11,8 @@
 #include "rtjs.h"
 
 Rtjs::Rtjs(gcm::json::rpc::RpcApi &api):
-    server(api)
+    server(api),
+    log(api.get_logger())
 {
     using namespace gcm::json::validator;
     using namespace std::placeholders;
@@ -40,8 +41,13 @@ Rtjs::Rtjs(gcm::json::rpc::RpcApi &api):
     );
 }
 
-gcm::json::JsonValue Rtjs::subscribe(gcm::json::Array &) {
+gcm::json::JsonValue Rtjs::subscribe(gcm::json::Array &params) {
     using namespace gcm::json;
+
+    DEBUG(log) << "Params:";
+    for (auto &param: params) {
+        DEBUG(log) << param->to_string();
+    }
 
     return make_object();
 }
