@@ -15,12 +15,45 @@ using Clock = std::chrono::steady_clock;
 using TimePoint = Clock::time_point;
 using Duration = std::chrono::seconds;
 
+static constexpr Duration DefaultTimeout = std::chrono::seconds(60);
+
+template<typename T>
+class IdSource {
+public:
+    using IdType = T;
+
+    // Won't work for scalar types.
+    IdSource(): last_id(init_type())
+    {}
+
+    T get() {
+        ++last_id;
+        return last_id;
+    }
+
+protected:
+    T last_id;
+
+    static constexpr
+    std::enable_if_t<std::is_scalar<T>::value, T> init_type() {
+        return 0;
+    }
+
+    static constexpr
+    std::enable_if_t<!std::is_scalar<T>::value, T> init_type() {
+        return T();
+    }
+};
+
+
 template<typename ValueType>
 class Session {
 public:
     friend class Channel<ValueType>;
 
-    Session(Duration timeout = std::duration_cast<Duration>(std::chrono::seconds(60))): last_activity(Clock::now()), timeout(timeout)
+    Session(Duration timeout = std::duration_cast<Duration>(DefaultTimeout)):
+        last_activity(Clock::now()),
+        timeout(timeout)
     {}
 
     void publish(JsonValue &value) {
@@ -61,7 +94,9 @@ protected:
 template<typename ValueType>
 class Channel {
 public:
-    void publish(ValueType &value) {
+    using IdSource = gcm::pubsub::IdSource<uint64_t>;
+
+    void publish(ValueType &&value) {
         std::unique_lock<std::mutex> channel_lock(mutex);
 
         for (auto &session: sessions) {
@@ -69,17 +104,19 @@ public:
         }
     }
 
-    std::string subscribe(std::chrono::seconds timeout) {
-        
+    IdSource::IdType subscribe(std::chrono::seconds timeout) {
+        IdSource::IdType new_id = id_source.get();
+        sessions.emplace_back(std::make_pair(new_id, Session<ValueType>()));
+        return new_id;
     }
 
-    std::vector<ValueType> poll(const std::string &session) {
+    std::vector<ValueType> poll(const IdSource::IdType &session) {
         std::unique_lock<std::mutex> channel_lock(mutex);
         sessions[session].poll();
     }
 
     template<typename T>
-    bool wait_for(const std::string &session, T duration) {
+    bool wait_for(const IdSource::IdType &session, T duration) {
         std::unique_lock<std::mutex> channel_lock(mutex);
         sessions[session].wait_for(duration);
     }
@@ -118,13 +155,16 @@ public:
     }
 
 protected:
-    std::map<std::string, Session<ValueType>> sessions;
+    std::map<IdSource::IdType, Session<ValueType>> sessions;
     std::mutex mutex;
+    IdSource id_source;
 };
 
-template<typename ValueType>
+template<typename ChannelName, typename ValueType>
 class PubSub {
 public:
+    using IdType = Channel<ValueType>::IdSource::IdType;
+
     PubSub():
         quit(false),
         clean_task{std::async(std::launch::async, &PubSub::clean_thread, this)}
@@ -136,16 +176,17 @@ public:
         clean_task.get();
     }
 
-    void publish(const std::string &channel, JsonValue value) {
+    void publish(const ChannelName &channel, ValueType &&value) {
         std::unique_lock<std::mutex> lock(mutex);
-        channels[channel].publish(value);
+        channels[channel].publish(std::forward<ValueType>(value));
     }
 
-    std::string subscribe(const std::string &channel) {
-
+    IdType subscribe(const ChannelName &channel, std::chrono::seconds timeout) {
+        std::unique_lock<std::mutex> lock(mutex);
+        return channels[channel].subscribe(timeout);
     }
 
-    std::vector<ValueType> poll(const std::string &channel, const std::string &session) {
+    std::vector<ValueType> poll(const ChannelName &channel, const IdType &session) {
         std::unique_lock<std::mutex> lock(mutex);
         return channels[channel].poll(session);
     }
@@ -172,7 +213,7 @@ protected:
         }
     }
 
-    std::map<std::string, Channel<ValueType>> channels;
+    std::map<ChannelName, Channel<ValueType>> channels;
 
     bool quit;
     std::mutex mutex;
