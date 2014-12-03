@@ -70,6 +70,26 @@ auto Object(const char *item, const char *help, Params... params) {
     return detail::Object_t<Params...>(item, help, params...);
 }
 
+class AnyType: public detail::ParamDefinition {
+public:
+    AnyType(const char *item, const char *help):
+        detail::ParamDefinition(ValueType::Null, item, help)
+    {}
+
+    bool operator()(Diagnostics &diag, JsonValue &value) const {
+        if (!value) {
+            diag.add_problem(
+                get_item(),
+                ProblemCode::MustBePresent,
+                "Item " + get_item() + " must be present."
+            );
+            return false;
+        } else {
+            return true;
+        }
+    }
+};
+
 }
 }
 }

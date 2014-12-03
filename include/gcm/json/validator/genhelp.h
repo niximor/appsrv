@@ -57,6 +57,55 @@ void fill(std::stringstream &ss, T fill, int num) {
 }
 
 /**
+ * Return length of param type string.
+ */
+template<typename T>
+std::size_t get_type_size(T &param) {
+    switch (param.get_type()) {
+        case ValueType::Object: return cstrlen("object{");
+        case ValueType::Array: return cstrlen("array[");
+        case ValueType::Int: return cstrlen("int");
+        case ValueType::Double: return cstrlen("double");
+        case ValueType::String: return cstrlen("sitrng");
+        case ValueType::Bool: return cstrlen("bool");
+        case ValueType::Null: return cstrlen("void");
+    }
+    return 0;
+}
+
+/**
+ * Specialization for AnyType.
+ */
+template<>
+inline std::size_t get_type_size(AnyType &) {
+    return cstrlen("mixed");
+}
+
+/**
+ * Generate data type to stream.
+ */
+template<typename T>
+void gen_param_type(std::stringstream &ss, T &param) {
+    switch (param.get_type()) {
+        case ValueType::Object: ss << "object"; break;
+        case ValueType::Array: ss << "array"; break;
+        case ValueType::Int: ss << "int"; break;
+        case ValueType::Double: ss << "double"; break;
+        case ValueType::String: ss << "string"; break;
+        case ValueType::Bool: ss << "bool"; break;
+        case ValueType::Null: ss << "void"; break;
+    }
+}
+
+/**
+ * Specialization for AnyType.
+ */
+template<>
+inline void gen_param_type(std::stringstream &ss, AnyType &) {
+    ss << "mixed";
+}
+
+/**
  * Generate short method params to method signature.
  */
 template<typename T>
@@ -73,49 +122,14 @@ std::size_t gen_method_params(std::stringstream &ss, T &params) {
             ss << ", ";
         }
 
-        std::size_t current_size = param.get_item().size();
-
-        switch (param.get_type()) {
-            case ValueType::Object:
-                ss << "object ";
-                current_size += cstrlen("object{");
-                break;
-
-            case ValueType::Array:
-                ss << "array ";
-                current_size += cstrlen("array[");
-                break;
-
-            case ValueType::Int:
-                ss << "int ";
-                current_size += cstrlen("int");
-                break;
-
-            case ValueType::Double:
-                ss << "double ";
-                current_size += cstrlen("double");
-                break;
-
-            case ValueType::String:
-                ss << "string ";
-                current_size += cstrlen("sitrng");
-                break;
-
-            case ValueType::Bool:
-                ss << "bool ";
-                current_size += cstrlen("bool");
-                break;
-
-            case ValueType::Null:
-                ss << "void ";
-                current_size += cstrlen("void");
-        }
+        std::size_t current_size = param.get_item().size() + get_type_size(param);
+        gen_param_type(ss, param);        
 
         if (longest < current_size) {
             longest = current_size;
         }
 
-        ss << param.get_item();
+        ss << " " << param.get_item();
     });
 
     ss << ")";
@@ -148,16 +162,7 @@ std::size_t gen_method_signature(const std::string &method_name, std::stringstre
  */
 template<typename T, typename R>
 std::size_t gen_method_signature(const std::string &method_name, std::stringstream &ss, T &params, R &result) {
-    switch (result.get_type()) {
-        case ValueType::Int: ss << "int"; break;
-        case ValueType::Double: ss << "double"; break;
-        case ValueType::Bool: ss << "bool"; break;
-        case ValueType::String: ss << "string"; break;
-        case ValueType::Object: ss << "object"; break;
-        case ValueType::Array: ss << "array"; break;
-        case ValueType::Null: ss << "void"; break;
-        default: ss << "mixed";
-    }
+    gen_param_type(ss, result);
 
     ss << " " << method_name;
     return gen_method_params(ss, params);
@@ -169,36 +174,7 @@ calc_longest(T &param_pack) {
     std::size_t longest = 0;
 
     param_pack.map([&](auto &param){
-        std::size_t current_size = param.get_item().size();
-
-        switch (param.get_type()) {
-            case ValueType::Object:
-                current_size += cstrlen("object{");
-                break;
-
-            case ValueType::Array:
-                current_size += cstrlen("array[");
-                break;
-
-            case ValueType::Int:
-                current_size += cstrlen("int");
-                break;
-
-            case ValueType::Double:
-                current_size += cstrlen("double");
-                break;
-
-            case ValueType::String:
-                current_size += cstrlen("sitrng");
-                break;
-
-            case ValueType::Bool:
-                current_size += cstrlen("bool");
-                break;
-
-            case ValueType::Null:
-                current_size += cstrlen("void");
-        }
+        std::size_t current_size = param.get_item().size() + get_type_size(param);
 
         if (longest < current_size) {
             longest = current_size;
@@ -254,47 +230,12 @@ void gen_param(std::stringstream &ss, std::size_t indent, std::size_t alignment,
     fill(ss, IndentStr, indent);
 
     // Length of current type including it's name.
-    std::size_t current = param.get_item().size();
+    std::size_t current = param.get_item().size() + get_type_size(param);
 
     // Generate type
-    switch (param.get_type()) {
-        case ValueType::Object:
-            ss << "object ";
-            current += cstrlen("object{");
-            break;
+    gen_param_type(ss, param);
 
-        case ValueType::Array:
-            ss << "array ";
-            current += cstrlen("array[");
-            break;
-
-        case ValueType::Int:
-            ss << "int ";
-            current += cstrlen("int");
-            break;
-
-        case ValueType::Double:
-            ss << "double ";
-            current += cstrlen("double");
-            break;
-
-        case ValueType::String:
-            ss << "string ";
-            current += cstrlen("string");
-            break;
-
-        case ValueType::Bool:
-            ss << "bool ";
-            current += cstrlen("bool");
-            break;
-
-        case ValueType::Null:
-            ss << "void ";
-            current += cstrlen("void");
-            break;
-    }
-
-    ss << param.get_item();
+    ss << " " << param.get_item();
 
     // Generate opening brackets for object or array.
     if (param.get_type() == ValueType::Array) {
@@ -319,6 +260,23 @@ void gen_param(std::stringstream &ss, std::size_t indent, std::size_t alignment,
         fill(ss, IndentStr, indent);
         ss << "}\n";
     }
+}
+
+template<>
+inline void gen_param(std::stringstream &ss, std::size_t indent, std::size_t alignment, AnyType &param) {
+    fill(ss, IndentStr, indent);
+
+    std::size_t current = param.get_item().size();
+    ss << "mixed ";
+    current += cstrlen("mixed");
+
+    ss << param.get_item();
+    int fillcnt = alignment - current;
+    fill(ss, ' ', fillcnt);
+
+    ss << IndentStr;
+    ss << param.get_help();
+    ss << '\n';
 }
 
 } // namespace detail
