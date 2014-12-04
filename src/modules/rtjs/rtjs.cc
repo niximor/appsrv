@@ -69,7 +69,7 @@ Rtjs::Rtjs(gcm::json::rpc::RpcApi &api):
         Bool("success", "Success of operation")
     );
 
-    server.register_method("rtjs.poll", std::bind(&Rtjs::list, this, _1),
+    server.register_method("rtjs.poll", std::bind(&Rtjs::poll, this, _1),
         "Poll session in channel for new messages and return them. Optionally wait for specified "
         "amount of time for new message to arrive.",
         ParamDefinitions(
@@ -148,14 +148,30 @@ gcm::json::JsonValue Rtjs::unsubscribe(gcm::json::Array &) {
     return res;
 }
 
-gcm::json::JsonValue Rtjs::publish(gcm::json::Array &) {
+gcm::json::JsonValue Rtjs::publish(gcm::json::Array &params) {
     using namespace gcm::json;
+
+    const std::string channel_name{to<String>(params[0])};
+    auto value = params[1];
+
+    pubsub.publish(channel_name, value);
 
     return make_bool(true);
 }
 
-gcm::json::JsonValue Rtjs::poll(gcm::json::Array &) {
+gcm::json::JsonValue Rtjs::poll(gcm::json::Array &params) {
     using namespace gcm::json;
 
-    return make_array();
+    const std::string channel_name{to<String>(params[0])};
+    int64_t session_id{to<Int>(params[1])};
+
+    JsonValue res;
+    if (params[2]) {
+        std::chrono::seconds timeout{to<Int>(params[2])};
+        res = make_array(pubsub.poll(channel_name, session_id, timeout));
+    } else {
+        res = make_array(pubsub.poll(channel_name, session_id));
+    }
+
+    return res;
 }
