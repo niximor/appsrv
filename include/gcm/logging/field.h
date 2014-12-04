@@ -28,6 +28,7 @@
 
 #include <time.h>
 #include <sys/types.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "message.h"
@@ -59,9 +60,8 @@ public:
 	LiteralField(const LiteralField &) = default;
 	LiteralField(LiteralField &&) = default;
 
-    void format(Msg &msg, std::ostream &stream) {
+    void format(Msg &, std::ostream &stream) {
         stream << literal;
-		(void)msg;
     }
 
 protected:
@@ -77,9 +77,14 @@ public:
 
 class Pid: public Field {
 public:
-	void format(Msg &msg, std::ostream &stream) {
-		stream << getpid();
-		(void)msg;
+	void format(Msg &, std::ostream &stream) {
+        pid_t pid = getpid();
+        pid_t tid = syscall(SYS_gettid);
+		stream << pid;
+
+        if (tid != pid) {
+            stream << ":" << tid;
+        }
 	}
 };
 
@@ -117,7 +122,7 @@ public:
 	Date(const Date &) = default;
 	Date(Date &&) = default;
 
-    void format(Msg &msg, std::ostream &stream) {
+    void format(Msg &, std::ostream &stream) {
 		tm tm_snapshot;
 		time_t now{time(NULL)};
 		localtime_r(&now, &tm_snapshot);
@@ -126,8 +131,6 @@ public:
 		strftime(formatted, sizeof(formatted), fmt.c_str(), &tm_snapshot);
 
 		stream << formatted;
-
-		(void)msg;
     }
 
 protected:
@@ -136,7 +139,7 @@ protected:
 
 class Name: public Field {
 public:
-	void format(Msg &msg, std::ostream &stream);
+	void format(Msg &, std::ostream &);
 };
 
 } // namespace field
