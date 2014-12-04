@@ -129,7 +129,14 @@ public:
     Array(): Value(), std::vector<std::shared_ptr<Value>>()
     {}
 
-    Array(std::initializer_list<std::shared_ptr<Value>> values): Value(), std::vector<std::shared_ptr<Value>>(values)
+    Array(std::initializer_list<std::shared_ptr<Value>> values):
+        Value(),
+        std::vector<std::shared_ptr<Value>>(values)
+    {}
+
+    Array(std::vector<std::shared_ptr<Value>> &&values):
+        Value(),
+        std::vector<std::shared_ptr<Value>>(std::forward<std::vector<std::shared_ptr<Value>>>(values))
     {}
 
     Array(const Array &) = default;
@@ -314,8 +321,12 @@ inline JsonValue make_array() {
     return std::make_shared<Array>();
 }
 
-inline JsonValue make_array(std::initializer_list<std::shared_ptr<Value>> values) {
+inline JsonValue make_array(std::initializer_list<JsonValue> values) {
     return std::make_shared<Array>(values);
+}
+
+inline JsonValue make_array(std::vector<JsonValue> &&values) {
+    return std::make_shared<Array>(std::forward<std::vector<JsonValue>>(values));
 }
 
 template<typename T>
