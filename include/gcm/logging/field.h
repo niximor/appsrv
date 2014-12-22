@@ -83,7 +83,7 @@ public:
 		stream << pid;
 
         if (tid != pid) {
-            stream << ":" << tid;
+            stream << ":" << (tid - pid);
         }
 	}
 };

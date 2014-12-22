@@ -165,7 +165,7 @@ public:
 void setup_logging(const std::string &appname, std::initializer_list<MessageType> levels) {
     auto &log = getLogger("");
     log.add_handler(StdErrHandler(Formatter(
-            field::Date(), " ", std::string(appname), ".", field::Name(), "[", field::Pid(), "] ", 
+            field::Date(), " [", field::Pid(), "] ", std::string(appname), ".", field::Name(), " ", 
             field::Severenity(), ": ", field::Message(), " {",
             field::File(), ":", field::Line(), "}"
     )));
