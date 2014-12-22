@@ -24,6 +24,7 @@
 #pragma once
 
 #include <stdexcept>
+#include <cstring>
 
 namespace gcm {
 namespace io {
@@ -32,6 +33,7 @@ class IOException: public std::runtime_error {
 public:
     IOException(const std::string &what): std::runtime_error(what) {}
     IOException(const char *what): std::runtime_error(what) {}
+    IOException(int err): std::runtime_error(std::strerror(err)) {}
 };
 
 } // namespace io
