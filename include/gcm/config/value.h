@@ -240,6 +240,15 @@ public:
         }
     }
 
+    StringType get(const std::string &index, const char *def) {
+        auto *s = get(index);
+        if (s == nullptr) {
+            return def;
+        } else {
+            return s->asString();
+        }
+    }
+
     ArrayType &get(const std::string &index, ArrayType &def) {
         auto *s = get(index);
         if (s == nullptr) {

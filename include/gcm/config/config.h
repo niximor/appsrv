@@ -32,6 +32,7 @@
 
 #include <gcm/logging/logging.h>
 #include <gcm/io/exception.h>
+#include <gcm/io/util.h>
 
 namespace gcm {
 namespace config {
@@ -40,13 +41,21 @@ class Config {
 public:
     Config(const std::string &file): val(Value::StructType()), log(gcm::logging::getLogger("GCM.ConfigParser")) {
         std::ifstream f(file, std::ios_base::in);
-        std::string contents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        if (!f.is_open()) {
+            if (gcm::io::exists(file)) {
+                ERROR(log) << "Cannot open " << file << " for reading.";
+            } else {
+                ERROR(log) << "Cannot open " << file << " for reading: No such file.";
+            }
+        } else {
+            std::string contents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 
-        Parser p(val, file);
-        try {
-            p.parse(contents.begin(), contents.end());
-        } catch (parse_error &e) {
-            ERROR(log) << e.what();
+            Parser p(val, file);
+            try {
+                p.parse(contents.begin(), contents.end());
+            } catch (parse_error &e) {
+                ERROR(log) << e.what();
+            }
         }
     }
 
