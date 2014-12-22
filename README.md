@@ -3,12 +3,10 @@ appsrv
 
 Modern C++ application server to provide backend to your apps.
 
-The server is currently in developement, it does not provide any functionality now. What it will be,
-once it's finished, is backend server for C++/Python (and possibly others) applications.
+The server provides generic framework for writing socket based applications with various handlers.
 
-It will provide generic framework for writing socket based applications with various handlers.
+JSON-RPC handler is currently provided for writing application servers using this modern transfer protocol. Also, it implements sample RTJS (pblish-subscribe) server to demonstrate functionality of the JSON-RPC handler.
 
-Each handler will be able to support different protocol and provide different functionality,
-due to modular design.
+Each handler can support different protocol and provide different functionality.
 
 It is written in modern C++14 programming language with strong focus on performance.
