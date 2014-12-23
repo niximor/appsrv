@@ -40,6 +40,7 @@ public:
             snprintf(buf, 32, "%d\n", ::getpid());
 
             write(fd, buf, strlen(buf));
+            INFO(log) << "Pid file written to " << file_name << ".";
         } else {
             throw PidFileExists(file_name);
         }

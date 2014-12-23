@@ -95,13 +95,19 @@ public:
             }
         } else {
             // No daemon, just set uid, gid and optionally PID file.
-            if (has_uid) {
-                ::setuid(uid);
+            if (has_gid) {
+                INFO(log) << "Setting group to " << uid;
+                if (setgid(gid) < 0) {
+                    ERROR(log) << "Unable to change group: " << strerror(errno);
+                }
             }
 
-            if (has_gid) {
-                ::setgid(gid);
-            }
+            if (has_uid) {
+                INFO(log) << "Setting user to " << uid;
+                if (setuid(uid) < 0) {
+                    ERROR(log) << "Unable to change user: " << strerror(errno);
+                }
+            }            
 
             if (!pid_file_name.empty()) {
                 PidFile pid(pid_file_name);
@@ -151,6 +157,7 @@ public:
 
     void set_uid(const std::string &user_name) {
         this->uid = getuid(user_name);
+        has_uid = true;
     }
 
     void set_gid(gid_t gid) {
@@ -160,6 +167,7 @@ public:
 
     void set_gid(const std::string &group_name) {
         this->gid = getgid(group_name);
+        has_gid = true;
     }
 
     void set_pidfile(const std::string &file_name) {
@@ -233,13 +241,21 @@ private:
 
     template<typename T>
     void exec_daemon(T &routine) {
+        auto &log = gcm::logging::getLogger("start-up");
+
         // 13. In the daemon process, drop privileges, if possible and applicable.
-        if (has_uid) {
-            setuid(uid);
+        if (has_gid) {
+            INFO(log) << "Setting group to " << uid;
+            if (setgid(gid) < 0) {
+                ERROR(log) << "Unable to change group: " << strerror(errno);
+            }
         }
 
-        if (has_gid) {
-            setgid(gid);
+        if (has_uid) {
+            INFO(log) << "Setting user to " << uid;
+            if (setuid(uid) < 0) {
+                ERROR(log) << "Unable to change user: " << strerror(errno);
+            }
         }
 
         // 14. From the daemon process, notify the original process starged that initialization is complete.
