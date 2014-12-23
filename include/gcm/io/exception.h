@@ -33,6 +33,7 @@ class IOException: public std::runtime_error {
 public:
     IOException(const std::string &what): std::runtime_error(what) {}
     IOException(const char *what): std::runtime_error(what) {}
+    IOException(const std::string &what, int err): std::runtime_error(what + ": " + std::strerror(err)) {}
     IOException(int err): std::runtime_error(std::strerror(err)) {}
 };
 
