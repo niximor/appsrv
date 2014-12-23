@@ -145,11 +145,11 @@ public:
         logger.get_handlers(true).clear();
 
         if (stderr) {
-            logger.add_handler(StdErrHandler(std::forward<Formatter>(formatter)));
+            logger.add_handler(StdErrHandler(formatter));
         }
 
         if (!file.empty()) {
-            logger.add_handler(FileHandler(file, std::forward<Formatter>(formatter)));
+            logger.add_handler(FileHandler(file, formatter));
         }
 
         for (auto &handler: logger.get_handlers(true)) {

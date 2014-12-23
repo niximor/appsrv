@@ -50,15 +50,6 @@ public:
         add_format(params...);
     }
 
-    void write(Message &msg, std::ostream &stream) {
-        for (auto &f: fields) {
-            f->format(msg, stream);
-        }
-    }
-
-protected:
-    std::vector<std::unique_ptr<field::Field>> fields;
-
     void add_format() {}
 
     template<typename... T>
@@ -67,17 +58,26 @@ protected:
         add_format(params...);
     }
 
-	template<typename... T>
-	void add_format(const char *literal, T... params) {
-		fields.push_back(std::make_unique<field::LiteralField>(std::move(field::LiteralField(literal))));
-		add_format(params...);
-	}
+    template<typename... T>
+    void add_format(const char *literal, T... params) {
+        fields.push_back(std::make_unique<field::LiteralField>(std::move(field::LiteralField(literal))));
+        add_format(params...);
+    }
 
     template<typename F, typename... T>
     void add_format(F f, T... params) {
         fields.push_back(std::make_unique<F>(std::move(f)));
-		add_format(params...);
+        add_format(params...);
     }
+
+    void write(Message &msg, std::ostream &stream) {
+        for (auto &f: fields) {
+            f->format(msg, stream);
+        }
+    }
+
+protected:
+    std::vector<std::shared_ptr<field::Field>> fields;
 };
 
 } // namespace logging

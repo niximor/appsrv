@@ -24,14 +24,20 @@
 #pragma once
 
 #include <iostream>
-#include <fstream>
 #include <sstream>
 #include <memory>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <cstdlib>
 
 #include "message.h"
 #include "formatter.h"
+
+#include <gcm/io/exception.h>
 
 namespace gcm {
 namespace logging {
@@ -46,12 +52,13 @@ struct Levels {
 
 class Handler {
 public:
-    Handler(Formatter &&formatter):
-        formatter(std::forward<Formatter>(formatter)),
+    Handler(Formatter formatter):
+        formatter(formatter),
         levels{true, true, true, true, false}
     {}
 
 	Handler(Handler &&) = default;
+    Handler(const Handler &) = default;
 
     virtual void write(Message &msg) = 0;
     virtual ~Handler();
@@ -92,12 +99,35 @@ protected:
 
 class FileHandler: public Handler {
 public:
-    FileHandler(const std::string &fileName, Formatter &&formatter):
+    FileHandler(const std::string &fileName, Formatter formatter):
 		Handler(std::forward<Formatter>(formatter)),
-		stream(std::make_shared<std::ofstream>(fileName, std::ios_base::app))
-    {}
+		//stream(std::make_shared<std::ofstream>(fileName, std::ios_base::app))
+        out(open(fileName.c_str(), O_WRONLY | O_APPEND | O_CREAT))
+    {
+        if (out <= 0) {
+            throw gcm::io::IOException(errno);
+        }
+    }
+
+    FileHandler(const FileHandler &other): Handler(other), out(dup(other.out)) {
+        if (out <= 0) {
+            throw gcm::io::IOException(errno);
+        }
+    }
+
+    FileHandler(FileHandler &&other): Handler(std::forward<Handler>(other)), out(other.out) {
+        other.out = 0;
+    }
+
+    ~FileHandler() {
+        if (out > 0) {
+            ::close(out);
+        }
+    }
 
     virtual void write(Message &msg) {
+        if (out <= 0) return;
+
         if (is_enabled(msg.get_severenity())) {
             // Need to buffer the message first, to write it to the file
             // at once, because otherwise other threads would interrupt
@@ -106,18 +136,24 @@ public:
             std::stringstream ss;
             formatter.write(msg, ss);
             ss << std::endl;
-            *stream << ss.str();
+            
+            std::string out_str{ss.str()};
+            if (::write(out, out_str.c_str(), out_str.length()) < 0) {
+                std::cerr << "Unable to write to log file: " << strerror(errno) << std::endl;
+            } else if (fsync(out) < 0) {
+                std::cerr << "Unable to sync log file: " << strerror(errno) << std::endl;
+            }
         }
     }
 
 protected:
-    std::shared_ptr<std::ofstream> stream;
+    int out;
 };
 
 class StdErrHandler: public Handler {
 public:
-	StdErrHandler(Formatter &&formatter):
-		Handler(std::forward<Formatter>(formatter)),
+	StdErrHandler(Formatter formatter):
+		Handler(formatter),
 		stream(std::cerr), color(false)
 	{}
 
