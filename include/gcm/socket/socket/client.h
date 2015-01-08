@@ -17,20 +17,43 @@
  * with GCM::AppSrv. If not, see http://www.gnu.org/licenses/.
  *
  * @author Michal Kuchta <niximor@gmail.com>
- * @date 2014-10-28
+ * @date 2015-01-08
  *
  */
 
 #pragma once
 
-#include "socket/inet.h"
-#include "socket/inet6.h"
-#include "socket/any.h"
+namespace gcm {
+namespace socket {
 
-#include "socket/unix.h"
+/**
+ * Connection to server.
+ */
+template<typename Address, Type type = Type::Stream>
+class ClientSocket: public WritableSocket<Address> {
+public:
+    ClientSocket(const Address &addr): WritableSocket<Address>(type)
+    {
+        connect(addr);
+    }
 
-#include "socket/generic_socket.h"
-#include "socket/server.h"
-#include "socket/client.h"
+    ClientSocket(ClientSocket &&other) = default;
 
-#include "socket/select.h"
+    const Address &get_server_address() const {
+        return server_address;
+    }
+
+    void connect(const Address &address) {
+        server_address = address;
+
+        if (::connect(this->fd, &server_address.addr, sizeof(server_address.addr)) < 0) {
+            throw SocketException(errno);
+        }
+    }
+
+protected:
+    Address server_address;
+};
+
+} // namespace socket
+} // namespace gcm
