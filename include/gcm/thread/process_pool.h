@@ -17,81 +17,85 @@
  * with GCM::AppSrv. If not, see http://www.gnu.org/licenses/.
  *
  * @author Michal Kuchta <niximor@gmail.com>
- * @date 2014-11-02
+ * @date 2014-01-06
  *
  */
 
 #pragma once
 
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <chrono>
 #include <deque>
 #include <list>
-#include <atomic>
-#include <memory>
+
+#include <unistd.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <signal.h>
+#include <sys/wait.h>
 
 #include <gcm/logging/logging.h>
+#include <gcm/thread/shm.h>
+#include <gcm/io/exception.h>
 
 #include "state.h"
 
 namespace gcm {
 namespace thread {
 
-template<typename T>
-class Pool;
-
-template<typename T>
-class Worker;
-
-template<typename T>
-class WorkerWrapper {
+class ProcessState {
 public:
-    WorkerWrapper(Worker<T> *worker): worker(worker)
+    ProcessState(): state(WorkerState::Starting), jobs_processed(0)
     {}
 
-    WorkerWrapper(WorkerWrapper &&) = default;
-    WorkerWrapper(const WorkerWrapper &) = default;
+    WorkerState state;
+    int jobs_processed;
+};
 
-    void operator()() {
-        (*worker)();
-    }
-
-protected:
-    Worker<T> *worker;
+class PoolState {
+public:
+    int num_free;
+    int num_starting;
+    int num_busy;
 };
 
 template<typename T>
-class Worker {
-public:
-    Worker(Pool<T> &pool):
-        pool(pool),
-        state(WorkerState::Starting),
-        quit(false),
-        thread(WorkerWrapper<T>(this))
-    {}
+class ProcessPool;
 
-    Worker(const Worker<T> &) = delete;
-    Worker(Worker<T> &&) = delete;
+template<typename T>
+class ProcessWorker {
+public:
+    ProcessWorker(ProcessPool<T> &pool): pool(pool) {
+        pid = fork();
+
+        if (pid < 0) {
+            throw gcm::io::IOException(errno);
+        } else if (pid == 0) {
+            SignalBind bind{Signal::at(SIGINT, std::bind(&ProcessWorker::stop, this))};
+            (*this)();
+        } else if (pid > 0) {
+            // Back in parent, do nothing here and return back
+            // to pool.
+        }
+    }
 
     WorkerState get_state() {
-        return state;
+        return state->state;
     }
 
     void operator()() {
         auto &log = gcm::logging::getLogger("GCM.ThreadPool");
+
         while (true) {
-            if (state == WorkerState::Starting) {
-                pool.num_free++;
-                pool.num_starting--;
+            if (state->state == WorkerState::Starting) {
+                pool.state->num_free++;
+                pool.state->num_starting--;
             } else {
-                pool.num_free++;
+                pool.state->num_free++;
             }
 
-            state = WorkerState::Free;
+            state->state = WorkerState::Free;
 
-            std::unique_lock<std::mutex> lock(pool.worker_mutex);
+            // Wait for work
+            std::unique_lock<SharedMutex> lock(pool.worker_mutex);
             while (!quit) {
                 if (!pool.tasks.empty()) break;
                 pool.worker_cond.wait(lock);
@@ -101,14 +105,12 @@ public:
                 break;
             }
 
-            state = WorkerState::Busy;
-            pool.num_free--;
-            pool.num_busy++;
+            state->state = WorkerState::Busy;
+            pool.state->num_free--;
+            pool.state->num_busy++;
 
-            T task{std::move(pool.tasks.front())};
-            pool.tasks.pop_front();
-
-            lock.unlock();
+            // TODO: Receive work
+            T task;
 
             try {
                 task();
@@ -118,96 +120,84 @@ public:
                 ERROR(log) << std::this_thread::get_id() << " Unknown exception thrown while executing thread job.";
             }
 
-            pool.num_busy--;
+            pool.state->num_busy--;
         }
 
-        pool.num_free--;
+        pool.state->num_free--;
     }
 
     void stop() {
-        quit = true;
-    }
+        if (pid > 0) {
+            // In parent
+            kill(pid, SIGINT);
 
-    std::thread &get_thread() {
-        return thread;
+        } else if (pid == 0) {
+            // In self.
+            quit = true;
+        }
     }
 
 protected:
-    Pool<T> &pool;
-    WorkerState state;
+    ProcessPool<T> &pool;
+    SharedMemory<ProcessState> state;
+    pid_t pid;
     bool quit;
-    std::thread thread;
 };
 
 template<typename T>
-class Pool {
+class ProcessPool {
+friend class ProcessWorker<T>;
 public:
-    Pool(size_t min_spare = 5, size_t max_workers = 50, size_t check_interval = 100):
+    ProcessPool(size_t min_spare = 5, size_t max_workers = 50, size_t check_interval = 100):
         min_spare(min_spare),
         max_workers(max_workers),
         check_interval(check_interval),
-        num_free(0),
-        num_busy(0),
-        num_starting(0),
         quit(false),
-        keeper_thread(&Pool::keeper_func, this)
-    {
-    }
+        keeper_thread(&ProcessPool::keeper_func, this),
+        sigchld_bind(Signal::at(SIGCHLD, std::bind(&ProcessPool::sigchld, this)))
+    {}
 
-    Pool(const Pool &) = delete;
-    Pool(Pool &&other) = delete;
+    ProcessPool(const ProcessPool &) = delete;
+    ProcessPool(ProcessPool &&) = delete;
 
     void stop() {
         quit = true;
         keeper_cond.notify_all();
 
-        std::unique_lock<std::mutex> lock(worker_mutex);
+        std::unique_lock<SharedMutex> lock(worker_mutex);
         while (!workers.empty()) {
             auto it = workers.begin();
             (*it)->stop();
-            to_collect.emplace_back(std::move(*it));
             workers.erase(it);
         }
         lock.unlock();
-
-        worker_cond.notify_all();
-
-        while (!to_collect.empty()) {
-            to_collect.back()->get_thread().join();
-            to_collect.pop_back();
-        }
     }
 
     void add_work(T &&w) {
-        std::unique_lock<std::mutex> lock(worker_mutex);
+        std::unique_lock<SharedMutex> lock(worker_mutex);
         tasks.emplace_back(std::forward<T>(w));
 
-        worker_cond.notify_one();
+        // TODO: Push work to one of processes.
     }
 
-    ~Pool() {
+    ~ProcessPool() {
         stop();
         keeper_thread.join();
     }
 
 protected:
-    friend class Worker<T>;
-
     size_t min_spare;
     size_t max_workers;
     size_t check_interval;
 
     std::deque<T> tasks;
 
-    std::condition_variable worker_cond;
-    std::mutex worker_mutex;
+    SharedCondition worker_cond;
+    SharedMutex worker_mutex;
 
-    std::list<std::unique_ptr<Worker<T>>> workers;
-    std::list<std::unique_ptr<Worker<T>>> to_collect;
+    std::list<std::unique_ptr<ProcessWorker<T>>> workers;
 
-    std::atomic<int> num_free;
-    std::atomic<int> num_busy;
-    std::atomic<int> num_starting;
+    SharedMemory<PoolState> state;
 
     bool quit;
     std::thread keeper_thread;
@@ -215,16 +205,13 @@ protected:
     std::condition_variable keeper_cond;
     std::mutex keeper_mutex;
 
+    SignalBind sigchld_bind;
+
 protected:
     void keeper_func() {
         while (!quit) {
             kill_spares();
             start_spares();
-
-            while (!to_collect.empty()) {
-                to_collect.back()->get_thread().join();
-                to_collect.pop_back();
-            }
 
             std::unique_lock<std::mutex> lock(keeper_mutex);
             keeper_cond.wait_for(lock, std::chrono::milliseconds(check_interval));
@@ -232,15 +219,14 @@ protected:
     }
 
     void kill_spares() {
-        std::unique_lock<std::mutex> lock(worker_mutex);
+        std::unique_lock<SharedMutex> lock(worker_mutex);
 
-        int to_kill = (num_free + num_starting) - min_spare;
+        int to_kill = (state->num_free + state->num_starting) - min_spare;
 
         if (to_kill > 0) {
             for (auto it = workers.begin(); to_kill > 0 && it != workers.end(); ++it) {
                 if ((*it)->get_state() == WorkerState::Free) {
                     (*it)->stop();
-                    to_collect.emplace_back(std::move(*it));
                     workers.erase(it);
 
                     it = workers.begin();
@@ -254,27 +240,28 @@ protected:
     }
 
     void start_spares() {
-        std::unique_lock<std::mutex> lock(worker_mutex);
+        std::unique_lock<SharedMutex> lock(worker_mutex);
 
-        int to_start = min_spare - num_free - num_starting;
+        int to_start = min_spare - state->num_free - state->num_starting;
         if (workers.size() + to_start > max_workers) {
             to_start = max_workers - workers.size();
         }
 
         if (to_start > 0) {
             while (to_start > 0) {
-                num_starting++;
-                workers.emplace_back(std::make_unique<Worker<T>>(*this));
+                state->num_starting++;
+                workers.emplace_back(std::make_unique<ProcessWorker<T>>(*this));
                 --to_start;
             }
         }
     }
-};
 
-template<typename T>
-std::shared_ptr<Pool<T>> make_pool(size_t min_spare = 5, size_t max_workers = 50, size_t check_interval = 100) {
-    return std::make_shared<Pool<T>>(min_spare, max_workers, check_interval);
-}
+    void sigchld() {
+        // Correctly terminate all killed processes.
+        int status;
+        while (waitpid(-1, &status, WNOHANG) > 0) {}
+    }
+};
 
 }
 }

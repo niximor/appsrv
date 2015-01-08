@@ -70,6 +70,7 @@ const std::string get_version() {
 }
 }
 
+/*
 int main(int, char *argv[]) {
 	std::string appname{gcm::io::basename(argv[0])};
 	l::util::setup_logging(appname, {
@@ -99,6 +100,22 @@ int main(int, char *argv[]) {
 
         INFO(l::getLogger("")) << "Server quit.";
     }
+}
+*/
+
+#include <gcm/thread/process_pool.h>
+
+class Job {
+public:
+    bool operator()() {
+        std::cout << "Processing job in PID " << getpid() << ".";
+        return true;
+    }
+};
+
+int main(void) {
+    gcm::thread::ProcessPool<Job> pool;
+    pool.add_work(Job());
 }
 
 
