@@ -17,20 +17,44 @@
  * with GCM::AppSrv. If not, see http://www.gnu.org/licenses/.
  *
  * @author Michal Kuchta <niximor@gmail.com>
- * @date 2014-10-28
+ * @date 2015-01-08
  *
  */
 
 #pragma once
 
-#include "socket/inet.h"
-#include "socket/inet6.h"
-#include "socket/any.h"
+#include <sys/socket.h>
 
-#include "socket/unix.h"
+namespace gcm {
+namespace socket {
 
-#include "socket/generic_socket.h"
-#include "socket/server.h"
-#include "socket/client.h"
+/**
+ * Socket type
+ */
+enum class Type {
+    Stream = SOCK_STREAM, // TCP in case of Inet family
+    Datagram = SOCK_DGRAM, // UDP in case of Inet family
+    Raw = SOCK_RAW // RAW socket. Usually requires root privileges to open this type of socket.
+};
 
-#include "socket/select.h"
+/**
+ * Generic class holding address family specific members.
+ * It is used to specify socket type.
+ */
+template <int Family, typename Addr>
+class AddrFamily {
+public:
+    template<typename T>
+    friend class Socket;
+
+    template<typename T>
+    friend class ServerSocket;
+
+    static constexpr int family = Family;
+
+protected:
+    Addr addr;
+};
+
+} // namespace socket
+} // namespace gcm
