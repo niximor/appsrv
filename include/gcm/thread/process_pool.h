@@ -38,6 +38,9 @@
 
 #include "state.h"
 
+// Define this to see debug output from ProcessPool.
+//#define PROCESSPOOL_DEBUG
+
 namespace gcm {
 namespace thread {
 
@@ -64,16 +67,34 @@ template<typename T>
 class ProcessWorker {
 public:
     ProcessWorker(ProcessPool<T> &pool): pool(pool) {
+        auto &log = gcm::logging::getLogger("GCM.ProcessPool");
+#ifdef PROCESSPOOL_DEBUG
+        DEBUG(log) << "Worker constructor.";
+#endif
+
         pid = fork();
 
         if (pid < 0) {
             throw gcm::io::IOException(errno);
         } else if (pid == 0) {
+#ifdef PROCESSPOOL_DEBUG
+            DEBUG(log) << "Worker start in progress...";
+#endif
+
+            // Kill pool.
+            pool.child_stop();
+
+            setpgid(0, 0);
             SignalBind bind{Signal::at(SIGINT, std::bind(&ProcessWorker::stop, this))};
             (*this)();
+
+            exit(0);
         } else if (pid > 0) {
             // Back in parent, do nothing here and return back
             // to pool.
+#ifdef PROCESSPOOL_DEBUG
+            DEBUG(log) << "Worker started.";
+#endif
         }
     }
 
@@ -81,8 +102,16 @@ public:
         return state->state;
     }
 
+    pid_t get_pid() {
+        if (pid > 0) {
+            return pid;
+        } else {
+            return getpid();
+        }
+    }
+
     void operator()() {
-        auto &log = gcm::logging::getLogger("GCM.ThreadPool");
+        auto &log = gcm::logging::getLogger("GCM.ProcessPool");
 
         while (true) {
             if (state->state == WorkerState::Starting) {
@@ -97,7 +126,8 @@ public:
             // Wait for work
             std::unique_lock<SharedMutex> lock(pool.worker_mutex);
             while (!quit) {
-                if (!pool.tasks.empty()) break;
+                // TODO: Wait for work
+                //if (!pool.tasks.empty()) break;
                 pool.worker_cond.wait(lock);
             }
 
@@ -127,13 +157,22 @@ public:
     }
 
     void stop() {
+        auto &log = gcm::logging::getLogger("GCM.ProcessPool");
+
         if (pid > 0) {
             // In parent
+#ifdef PROCESSPOOL_DEBUG
+            DEBUG(log) << "Stopping child " << pid << ".";
+#endif
             kill(pid, SIGINT);
 
         } else if (pid == 0) {
             // In self.
+#ifdef PROCESSPOOL_DEBUG
+            DEBUG(log) << "Received SIGINT.";
+#endif
             quit = true;
+            pool.worker_cond.notify_all();
         }
     }
 
@@ -153,6 +192,7 @@ public:
         max_workers(max_workers),
         check_interval(check_interval),
         quit(false),
+        child_quit(false),
         keeper_thread(&ProcessPool::keeper_func, this),
         sigchld_bind(Signal::at(SIGCHLD, std::bind(&ProcessPool::sigchld, this)))
     {}
@@ -163,14 +203,6 @@ public:
     void stop() {
         quit = true;
         keeper_cond.notify_all();
-
-        std::unique_lock<SharedMutex> lock(worker_mutex);
-        while (!workers.empty()) {
-            auto it = workers.begin();
-            (*it)->stop();
-            workers.erase(it);
-        }
-        lock.unlock();
     }
 
     void add_work(T &&w) {
@@ -196,10 +228,12 @@ protected:
     SharedMutex worker_mutex;
 
     std::list<std::unique_ptr<ProcessWorker<T>>> workers;
+    std::list<pid_t> to_collect;
 
     SharedMemory<PoolState> state;
 
     bool quit;
+    bool child_quit;
     std::thread keeper_thread;
 
     std::condition_variable keeper_cond;
@@ -209,23 +243,59 @@ protected:
 
 protected:
     void keeper_func() {
-        while (!quit) {
+        auto &log = gcm::logging::getLogger("GCM.ProcessPool");
+
+        while (!quit && !child_quit) {
             kill_spares();
             start_spares();
 
             std::unique_lock<std::mutex> lock(keeper_mutex);
             keeper_cond.wait_for(lock, std::chrono::milliseconds(check_interval));
         }
+
+        if (child_quit) {
+            return;
+        }
+
+#ifdef PROCESSPOOL_DEBUG
+        DEBUG(log) << "ProcessPool stop in progress.";
+#endif
+
+        std::unique_lock<SharedMutex> lock(worker_mutex);
+        while (!workers.empty()) {
+            auto it = workers.begin();
+            to_collect.push_back((*it)->get_pid());
+            (*it)->stop();
+            workers.erase(it);
+        }
+        lock.unlock();
+
+        if (!to_collect.empty() || !workers.empty()) {
+#ifdef PROCESSPOOL_DEBUG
+            DEBUG(log) << "Waiting for child processes to terminate.";
+#endif
+        
+            while (!to_collect.empty() || !workers.empty()) {
+                std::unique_lock<std::mutex> lock(keeper_mutex);
+                keeper_cond.wait_for(lock, std::chrono::milliseconds(check_interval));   
+            }
+        }
     }
 
     void kill_spares() {
+        auto &log = gcm::logging::getLogger("GCM.ProcessPool");
+
         std::unique_lock<SharedMutex> lock(worker_mutex);
 
         int to_kill = (state->num_free + state->num_starting) - min_spare;
 
         if (to_kill > 0) {
+#ifdef PROCESSPOOL_DEBUG
+            DEBUG(log) << "Too many workers, killing " << to_kill << " of them.";
+#endif
             for (auto it = workers.begin(); to_kill > 0 && it != workers.end(); ++it) {
                 if ((*it)->get_state() == WorkerState::Free) {
+                    to_collect.push_back((*it)->get_pid());
                     (*it)->stop();
                     workers.erase(it);
 
@@ -240,6 +310,8 @@ protected:
     }
 
     void start_spares() {
+        auto &log = gcm::logging::getLogger("GCM.ProcessPool");
+
         std::unique_lock<SharedMutex> lock(worker_mutex);
 
         int to_start = min_spare - state->num_free - state->num_starting;
@@ -247,11 +319,23 @@ protected:
             to_start = max_workers - workers.size();
         }
 
+        pid_t pid = getpid();
+
         if (to_start > 0) {
+#ifdef PROCESSPOOL_DEBUG
+            DEBUG(log) << "Need to start " << to_start << " new workers.";
+#endif
             while (to_start > 0) {
                 state->num_starting++;
+#ifdef PROCESSPOOL_DEBUG
+                DEBUG(log) << "Starting new worker.";
+#endif
                 workers.emplace_back(std::make_unique<ProcessWorker<T>>(*this));
                 --to_start;
+
+                if (pid != getpid()) {
+                    break;
+                }
             }
         }
     }
@@ -259,7 +343,50 @@ protected:
     void sigchld() {
         // Correctly terminate all killed processes.
         int status;
-        while (waitpid(-1, &status, WNOHANG) > 0) {}
+        pid_t pid;
+        while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+            std::unique_lock<std::mutex> lock(keeper_mutex);
+            // Try to find pid in to_collect.
+
+            bool found = false;
+            for (auto it = to_collect.begin(); it != to_collect.end(); ++it) {
+                if ((*it) == pid) {
+                    to_collect.erase(it);
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                for (auto it = workers.begin(); it != workers.end(); ++it) {
+                    if ((*it)->get_pid() == pid) {
+                        workers.erase(it);
+                        found = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!found) {
+                auto &log = gcm::logging::getLogger("GCM.ProcessPool");
+                WARNING(log) << "Received SIGCHLD for unknown PID " << pid << ".";
+            }
+        }
+    }
+
+    void child_stop() {
+        std::unique_lock<SharedMutex> lock(worker_mutex);
+
+        min_spare = 0;
+        max_workers = 0;
+        workers.clear();
+        to_collect.clear();
+        tasks.clear();
+        child_quit = true;
+
+        lock.unlock();
+
+        stop();
     }
 };
 

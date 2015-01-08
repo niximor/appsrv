@@ -107,15 +107,36 @@ int main(int, char *argv[]) {
 
 class Job {
 public:
+    Job() {
+
+    }
+
+    Job(gcm::socket:: fd) {
+
+    }
+
     bool operator()() {
-        std::cout << "Processing job in PID " << getpid() << ".";
+        auto &log = gcm::logging::getLogger("GCM.ProcessPool");
+        DEBUG(log) << "Processing job.";
         return true;
     }
 };
 
-int main(void) {
+int main(int, char **argv) {
+    std::string appname{gcm::io::basename(argv[0])};
+    l::util::setup_logging(appname, {
+        l::MessageType::Critical,
+        l::MessageType::Error,
+        l::MessageType::Warning,
+        l::MessageType::Info,
+        l::MessageType::Debug
+    });
+
     gcm::thread::ProcessPool<Job> pool;
     pool.add_work(Job());
+
+    auto loop = InfiniteLoop();
+    loop();
 }
 
 
