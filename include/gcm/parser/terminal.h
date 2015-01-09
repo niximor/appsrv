@@ -26,6 +26,7 @@
 #include <string>
 #include <cctype>
 #include <typeinfo>
+#include <sstream>
 
 #include "base.h"
 

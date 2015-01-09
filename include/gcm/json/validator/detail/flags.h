@@ -23,6 +23,8 @@
 
 #pragma once
 
+#include "../diagnostics.h"
+
 namespace gcm {
 namespace json {
 namespace validator {

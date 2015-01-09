@@ -36,8 +36,9 @@
 #include <unistd.h>
 
 #include "exception.h"
+#include "types.h"
 
-#include <gcm/logging/logger.h>
+#include <gcm/logging/logging.h>
 
 namespace gcm {
 namespace socket {
@@ -100,7 +101,7 @@ public:
     }
 
     void bind(Address bind_addr) {
-        if (::bind(fd, reinterpret_cast<const sockaddr *>(&bind_addr.addr), sizeof(bind_addr.addr)) < 0) {
+        if (::bind(fd, reinterpret_cast<const sockaddr *>(&bind_addr.get_addr()), sizeof(decltype(bind_addr.get_addr()))) < 0) {
             throw SocketException(errno);
         }
         bind_address = bind_addr;

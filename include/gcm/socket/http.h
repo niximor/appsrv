@@ -27,6 +27,7 @@
 #include <string>
 #include <sstream>
 #include <exception>
+#include <vector>
 
 #include <gcm/parser/parser.h>
 

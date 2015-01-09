@@ -27,6 +27,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "exception.h"
 #include "types.h"
 
 namespace gcm {

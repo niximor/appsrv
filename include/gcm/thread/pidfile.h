@@ -14,6 +14,8 @@
 #include <gcm/io/util.h>
 #include <gcm/io/exception.h>
 
+#include <gcm/logging/logging.h>
+
 namespace gcm {
 namespace thread {
 

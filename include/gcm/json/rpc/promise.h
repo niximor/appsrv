@@ -26,6 +26,8 @@
 #include <mutex>
 #include <condition_variable>
 
+#include "../json.h"
+
 namespace gcm {
 namespace json {
 namespace rpc {

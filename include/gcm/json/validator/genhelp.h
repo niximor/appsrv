@@ -30,6 +30,8 @@
 #include "detail/flags.h"
 #include "detail/types.h"
 
+#include "validators.h"
+
 namespace gcm {
 namespace json {
 namespace validator {

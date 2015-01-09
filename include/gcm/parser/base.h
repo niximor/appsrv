@@ -26,6 +26,7 @@
 //#define PARSER_DEBUG
 
 #include <type_traits>
+#include <utility>
 
 #ifdef PARSER_DEBUG
 #   include <gcm/logging/logging.h>
@@ -50,7 +51,7 @@ template<typename T>
 struct is_rule: std::integral_constant<bool, std::is_base_of<rule_base, std::decay_t<T>>::value>
 {};
 
-using ParserPosition = std::pair<size_t, size_t>;
+using ParserPosition = std::pair<std::size_t, std::size_t>;
 
 template<typename I>
 auto calc_line_column(I begin, I end) {

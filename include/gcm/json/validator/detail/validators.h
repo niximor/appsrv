@@ -25,6 +25,7 @@
 
 #include "../../json.h"
 #include "types.h"
+#include "../diagnostics.h"
 
 namespace gcm {
 namespace json {

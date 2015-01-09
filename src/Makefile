@@ -3,6 +3,7 @@ CXXFLAGS := -std=c++14 -Wall -Wextra -pedantic-errors -g -ggdb3 -gdwarf-2 -fno-s
 CXXFLAGS += -I../include/
 CXXFLAGS += -fdiagnostics-color=always
 CXXFLAGS += $(CXXEF)
+CXXFLAGS += -fdiagnostics-color=always
 LDFLAGS := -pthread
 LDFLAGS += -rdynamic
 LDFLAGS += -ldl

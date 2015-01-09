@@ -28,9 +28,12 @@
 #include <chrono>
 #include <iomanip>
 
+#include <gcm/logging/logging.h>
+
 #include "../json.h"
 #include "types.h"
 #include "promise.h"
+#include "exception.h"
 
 namespace gcm {
 namespace json {
