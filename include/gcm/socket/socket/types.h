@@ -44,13 +44,15 @@ enum class Type {
 template <int Family, typename Addr>
 class AddrFamily {
 public:
-    template<typename T>
-    friend class Socket;
-
-    template<typename T>
-    friend class ServerSocket;
-
     static constexpr int family = Family;
+
+    const Addr &get_addr() const {
+        return addr;
+    }
+
+    Addr &get_addr() {
+        return addr;
+    }
 
 protected:
     Addr addr;

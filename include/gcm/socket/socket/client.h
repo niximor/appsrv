@@ -23,6 +23,11 @@
 
 #pragma once
 
+#include <sys/socket.h>
+
+#include "types.h"
+#include "generic_socket.h"
+
 namespace gcm {
 namespace socket {
 

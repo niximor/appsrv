@@ -24,8 +24,12 @@
 #pragma once
 
 #include <chrono>
+#include <mutex>
+#include <condition_variable>
 
 #include <sys/shm.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
 

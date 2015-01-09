@@ -23,7 +23,9 @@
 
 #pragma once
 
-#include <exception>
+#include <stdexcept>
+#include <string>
+#include <functional>
 
 #include <dlfcn.h>
 

@@ -33,6 +33,8 @@
 #include <gcm/io/glob.h>
 #include <gcm/io/exception.h>
 
+#include "value.h"
+
 namespace gcm {
 namespace config {
 
@@ -63,8 +65,19 @@ class Parser {
 public:
     static constexpr const char *DefaultFileName = "unknown";
 
-    Parser(Value &val): root_value(val), current(&val), file_name(DefaultFileName), log(gcm::logging::getLogger("GCM.ConfigParser")) {}
-    Parser(Value &val, const std::string &file): root_value(val), current(&val), file_name(file), log(gcm::logging::getLogger("GCM.ConfigParser")) {
+    Parser(Value &val):
+        root_value(val),
+        current(&val),
+        file_name(DefaultFileName),
+        log(gcm::logging::getLogger("GCM.ConfigParser"))
+    {}
+
+    Parser(Value &val, const std::string &file):
+        root_value(val),
+        current(&val),
+        file_name(file),
+        log(gcm::logging::getLogger("GCM.ConfigParser"))
+    {
         DEBUG(log) << "Reading config file " << file << ".";
     }
 

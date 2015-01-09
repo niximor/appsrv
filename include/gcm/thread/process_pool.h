@@ -25,6 +25,7 @@
 
 #include <deque>
 #include <list>
+#include <thread>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -34,6 +35,7 @@
 
 #include <gcm/logging/logging.h>
 #include <gcm/thread/shm.h>
+#include <gcm/thread/signal.h>
 #include <gcm/io/exception.h>
 
 #include "state.h"

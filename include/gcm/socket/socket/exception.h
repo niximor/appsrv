@@ -24,6 +24,7 @@
 #pragma once
 
 #include <exception>
+#include <sstream>
 
 #include <string.h>
 

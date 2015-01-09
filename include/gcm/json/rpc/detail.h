@@ -25,7 +25,10 @@
 
 #include <functional>
 
+#include <gcm/logging/logging.h>
+
 #include "types.h"
+#include "exception.h"
 #include "../validator.h"
 
 namespace gcm {

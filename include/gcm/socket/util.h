@@ -25,6 +25,9 @@
 
 #include <cctype>
 #include <utility>
+#include <iterator>
+
+#include <netinet/in.h>
 
 namespace gcm {
 namespace socket {

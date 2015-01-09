@@ -58,9 +58,9 @@ public:
     template<typename T>
     ConnectedSocket<T> accept() {
         Address client;
-        socklen_t addrlen = sizeof(client.addr);
+        socklen_t addrlen = sizeof(decltype(client.get_addr()));
 
-        int newfd = ::accept(this->fd, reinterpret_cast<sockaddr *>(&(client.addr)), &addrlen);
+        int newfd = ::accept(this->fd, reinterpret_cast<sockaddr *>(&(client.get_addr())), &addrlen);
         if (newfd <= 0) {
             throw SocketException(errno);
         }

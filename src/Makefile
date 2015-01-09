@@ -2,6 +2,7 @@ CXX := g++-4.9
 CXXFLAGS := -std=c++14 -Wall -Wextra -pedantic-errors -g -ggdb3 -gdwarf-2 -fno-strict-aliasing -fPIC
 CXXFLAGS += -I../include/
 CXXFLAGS += $(CXXEF)
+CXXFLAGS += -fdiagnostics-color=always
 LDFLAGS := -pthread
 LDFLAGS += -rdynamic
 LDFLAGS += -ldl

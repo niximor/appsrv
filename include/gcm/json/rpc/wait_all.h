@@ -28,6 +28,8 @@
 #include <mutex>
 #include <condition_variable>
 
+#include <gcm/logging/logging.h>
+
 #include "promise.h"
 
 namespace gcm {

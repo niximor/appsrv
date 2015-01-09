@@ -23,6 +23,9 @@
 
 #pragma once
 
+#include "../../json.h"
+#include "../diagnostics.h"
+
 #include "types.h"
 
 #include <iostream>
