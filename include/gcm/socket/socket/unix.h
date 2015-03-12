@@ -161,7 +161,7 @@ protected:
     {}
 };
 
-std::pair<UnixSocket, UnixSocket> Unix::make_pair() {
+inline std::pair<UnixSocket, UnixSocket> Unix::make_pair() {
     int fds[2];
     if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) < 0) {
         throw SocketException(errno);

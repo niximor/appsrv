@@ -41,15 +41,13 @@ class Message;
 
 namespace field {
 
-using Msg = gcm::logging::Message;
-
 class Field {
 public:
 	Field() = default;
 	Field(const Field &) = default;
 	Field(Field &&) = default;
 
-    virtual void format(Msg &msg, std::ostream &stream) = 0;
+    virtual void format(gcm::logging::Message &msg, std::ostream &stream) = 0;
     virtual ~Field() = default;
 };
 
@@ -60,7 +58,7 @@ public:
 	LiteralField(const LiteralField &) = default;
 	LiteralField(LiteralField &&) = default;
 
-    void format(Msg &, std::ostream &stream) {
+    void format(Message &, std::ostream &stream) {
         stream << literal;
     }
 
@@ -70,14 +68,14 @@ protected:
 
 class File: public Field {
 public:
-    void format(Msg &msg, std::ostream &stream) {
+    void format(gcm::logging::Message &msg, std::ostream &stream) {
         stream << msg.get_file();
     }
 };
 
 class Pid: public Field {
 public:
-	void format(Msg &, std::ostream &stream) {
+	void format(gcm::logging::Message &, std::ostream &stream) {
         pid_t pid = getpid();
         pid_t tid = syscall(SYS_gettid);
 		stream << pid;
@@ -90,7 +88,7 @@ public:
 
 class Severenity: public Field {
 public:
-	void format(Msg &msg, std::ostream &stream) {
+	void format(gcm::logging::Message &msg, std::ostream &stream) {
 		switch (msg.get_severenity()) {
 			case MessageType::Critical: stream << "CRIT"; break;
 			case MessageType::Error: stream << "ERR"; break;
@@ -103,14 +101,14 @@ public:
 
 class Line: public Field {
 public:
-    void format(Msg &msg, std::ostream &stream) {
+    void format(gcm::logging::Message &msg, std::ostream &stream) {
         stream << msg.get_line();
     }
 };
 
 class Message: public Field {
 public:
-    void format(Msg &msg, std::ostream &stream) {
+    void format(gcm::logging::Message &msg, std::ostream &stream) {
         stream << msg.get_message();
     }
 };
@@ -122,7 +120,7 @@ public:
 	Date(const Date &) = default;
 	Date(Date &&) = default;
 
-    void format(Msg &, std::ostream &stream) {
+    void format(gcm::logging::Message &, std::ostream &stream) {
 		tm tm_snapshot;
 		time_t now{time(NULL)};
 		localtime_r(&now, &tm_snapshot);
@@ -139,7 +137,7 @@ protected:
 
 class Name: public Field {
 public:
-	void format(Msg &msg, std::ostream &stream);
+	void format(gcm::logging::Message &msg, std::ostream &stream);
 };
 
 } // namespace field

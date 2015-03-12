@@ -23,6 +23,9 @@
 
 #pragma once
 
+#include "../message.h"
+#include "../logger.h"
+
 namespace gcm {
 namespace logging {
 

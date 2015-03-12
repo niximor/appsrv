@@ -21,11 +21,16 @@
  *
  */
 
+#pragma once
+
+#include "../message.h"
+#include "../logger.h"
+
 namespace gcm {
 namespace logging {
 namespace field {
 
-inline void Name::format(Msg &msg, std::ostream &stream) {
+inline void Name::format(gcm::logging::Message &msg, std::ostream &stream) {
     stream << msg.get_logger().get_name();
 }
 
