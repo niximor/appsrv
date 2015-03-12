@@ -10,16 +10,18 @@
 namespace gcm {
 namespace config {
 
+class Value;
+
+using IntType = int64_t;
+using DoubleType = double;
+using BoolType = bool;
+using StringType = std::string;
+using ArrayType = std::vector<Value>;
+using StructType = std::vector<std::pair<std::string, Value>>;
+
 class Value {
 public:
     friend class Parser;
-
-    using IntType = int64_t;
-    using DoubleType = double;
-    using BoolType = bool;
-    using StringType = std::string;
-    using ArrayType = std::vector<Value>;
-    using StructType = std::vector<std::pair<std::string, Value>>;
 
     union UValue {
         IntType int_value;
@@ -198,6 +200,34 @@ public:
             }
         }
         return nullptr;
+    }
+
+    /**
+     * Get value optionally creating it of specified type if not found.
+     * @return reference to required value.
+     */
+    template<typename T>
+    Value &get(const std::string &index) {
+        auto &s = asStruct();
+        for (auto &item: s) {
+            if (item.first == index) {
+                return item.second;
+            }
+        }
+
+        Value v;
+        v.parent = this;
+
+        if (!this->identifier.empty()) {
+            v.identifier = this->identifier + "." + index;
+        } else {
+            v.identifier = index;
+        }
+
+        set_default_value<T>(v);
+
+        s.emplace_back(index, std::move(v));
+        return s.back().second;
     }
 
     template<typename T>
@@ -431,6 +461,34 @@ protected:
         if (getType() != type) {
             throw std::runtime_error(identifier + ": Invalid conversion from " + strtype(getType()) + " to " + strtype(type) + ".");
         }
+    }
+
+    template<typename T>
+    std::enable_if_t<std::is_same<T, bool>::value, void>
+    set_default_value(Value &v) {
+        v = false;
+    }
+
+    template<typename T>
+    std::enable_if_t<std::is_integral<T>::value && !std::is_same<T, bool>::value, void>
+    set_default_value(Value &v) {
+        v = 0;
+    }
+
+    template<typename T>
+    std::enable_if_t<std::is_floating_point<T>::value, void>
+    set_default_value(Value &v) {
+        v = 0.0;
+    }
+
+    template<typename T>
+    std::enable_if_t<
+        std::is_same<T, ArrayType>::value
+        || std::is_same<T, StructType>::value
+        || std::is_same<T, StringType>::value
+    , void>
+    set_default_value(Value &v) {
+        v = T{};
     }
 };
 

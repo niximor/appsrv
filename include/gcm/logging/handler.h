@@ -61,7 +61,7 @@ public:
     Handler(const Handler &) = default;
 
     virtual void write(Message &msg) = 0;
-    virtual ~Handler();
+    virtual ~Handler() = default;
 
     void enable_type(MessageType type) {
         set_type(type, true);

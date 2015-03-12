@@ -110,7 +110,7 @@ public:
         file{(s.hasItem("file") && !s["file"].isNull() && s["file"].asBool())
             ?s["file"].asString()
             :""},
-        levels(s.hasItem("levels") && s.isStruct() ? s["levels"] : config::Value(config::Value::StructType())),
+        levels(s.hasItem("levels") && s.isStruct() ? s["levels"] : config::Value{config::StructType{}}),
         appname(appname)
     {}
 

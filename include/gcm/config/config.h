@@ -39,8 +39,8 @@ namespace config {
 
 class Config {
 public:
-    Config(const std::string &file): val(Value::StructType()), log(gcm::logging::getLogger("GCM.ConfigParser")) {
-        std::ifstream f(file, std::ios_base::in);
+    Config(const std::string &file): val{StructType{}}, log{gcm::logging::getLogger("GCM.ConfigParser")} {
+        std::ifstream f{file, std::ios_base::in};
         if (!f.is_open()) {
             if (gcm::io::exists(file)) {
                 ERROR(log) << "Cannot open " << file << " for reading.";
@@ -73,6 +73,11 @@ public:
     template<typename T>
     auto get(const std::string &index, T &&def) {
         return val.get(index, def);
+    }
+
+    template<typename T>
+    Value &get(const std::string &index) {
+        return val.get<T>(index);
     }
 
     auto get(const std::string &index, const char *def) {

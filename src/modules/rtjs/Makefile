@@ -1,4 +1,10 @@
 OBJS = $(shell find . -iname '*.o')
+MODULE := rtjs.so
 
-rtjs.so: $(OBJS)
+$(MODULE): $(OBJS)
 	$(strip $(LINK.cpp) -shared $^ -o $@)
+
+clean:
+	rm -f $(MODULE)
+
+.PHONY: clean

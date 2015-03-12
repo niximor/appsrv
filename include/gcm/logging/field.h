@@ -50,7 +50,7 @@ public:
 	Field(Field &&) = default;
 
     virtual void format(Msg &msg, std::ostream &stream) = 0;
-    virtual ~Field();
+    virtual ~Field() = default;
 };
 
 class LiteralField: public Field {
@@ -139,7 +139,7 @@ protected:
 
 class Name: public Field {
 public:
-	void format(Msg &, std::ostream &);
+	void format(Msg &msg, std::ostream &stream);
 };
 
 } // namespace field

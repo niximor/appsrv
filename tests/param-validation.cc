@@ -6,10 +6,6 @@ using namespace bandit;
 using namespace gcm::json;
 namespace v = gcm::json::validator;
 
-// vtable for json::Value goes here.
-Value::~Value()
-{}
-
 go_bandit([](){
     describe("json", [](){
         describe("validator", [](){

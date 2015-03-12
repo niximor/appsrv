@@ -17,12 +17,18 @@
  * with GCM::AppSrv. If not, see http://www.gnu.org/licenses/.
  *
  * @author Michal Kuchta <niximor@gmail.com>
- * @date 2014-10-28
+ * @date 2015-03-12
  *
  */
 
-#include <gcm/thread/signal.h>
+namespace gcm {
+namespace logging {
+namespace field {
 
-using namespace gcm::thread;
+inline void Name::format(Msg &msg, std::ostream &stream) {
+    stream << msg.get_logger().get_name();
+}
 
-Signal Signal::self;
+} // namespace field
+} // namespace logging
+} // namespace gcm

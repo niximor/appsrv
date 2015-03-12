@@ -1,6 +1,7 @@
 CXX := g++-4.9
 CXXFLAGS := -std=c++14 -Wall -Wextra -pedantic-errors -g -ggdb3 -gdwarf-2 -fno-strict-aliasing -fPIC
 CXXFLAGS += -I../include/
+CXXFLAGS += -fdiagnostics-color=always
 CXXFLAGS += $(CXXEF)
 LDFLAGS := -pthread
 LDFLAGS += -rdynamic
@@ -30,13 +31,15 @@ $(foreach file,$(DEPS),$(eval -include $(file)))
 	$(strip $(COMPILE.cpp) -MMD $< -o $@)
 
 $(HANDLERS):
-	make -w -C $@
+	$(MAKE) -w -C $@
 
 $(MODULES):
-	make -w -C $@
+	$(MAKE) -w -C $@
 
 clean:
 	$(RM) -f $(OBJS) $(DEPS) $(APP)
+	$(foreach mod,$(MODULES),$(MAKE) -w -C $(mod) clean;)
+	$(foreach handler,$(HANDLERS),$(MAKE) -w -C $(handler) clean;)
 
 .PHONY: all clean build $(HANDLERS) $(MODULES)
 .EXPORT_ALL_VARIABLES:

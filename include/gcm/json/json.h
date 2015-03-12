@@ -66,7 +66,7 @@ inline std::string str_type(ValueType val) {
 
 class Value {
 public:
-    virtual ~Value();
+    virtual ~Value() = default;
 
     static constexpr const ValueType type = ValueType::Null;
 

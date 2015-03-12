@@ -255,12 +255,12 @@ protected:
 
     template<typename I>
     void array_begin(I, I) {
-        (*current) = Value::ArrayType();
+        (*current) = ArrayType();
     }
 
     template<typename I>
     void struct_begin(I, I) {
-        (*current) = Value::StructType();
+        (*current) = StructType();
     }
 
     template<typename I>

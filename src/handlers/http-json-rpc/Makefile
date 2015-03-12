@@ -1,4 +1,11 @@
 OBJS = $(shell find . -iname '*.o')
+HANDLER := http-json-rpc.so
 
-http-json-rpc.so: $(OBJS)
+$(HANDLER): $(OBJS)
 	$(strip $(LINK.cpp) -shared $^ -o $@)
+
+clean:
+	rm -f $(HANDLER)
+
+.PHONY: clean
+

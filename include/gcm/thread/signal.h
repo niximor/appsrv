@@ -40,6 +40,7 @@ namespace thread {
 using Callback = std::function<void()>;
 
 class Signal;
+Signal &get_static_ref();
 
 class SignalBind {
 public:
@@ -64,10 +65,13 @@ protected:
 };
 
 class Signal {
+friend Signal &get_static_ref();
+
 public:
     friend class SignalBind;
 
     static SignalBind at(int signum, Callback cb) {
+        Signal &self = get_static_ref();
         std::lock_guard<std::mutex> lock(self.mutex);
 
         if (self.callbacks.find(signum) == self.callbacks.end()) {
@@ -94,12 +98,10 @@ public:
     }
 
     static Signal &get_instance() {
-        return self;
+        return get_static_ref();
     }
 
 protected:
-    static Signal self;
-
     Signal()
     {}
 
@@ -126,6 +128,11 @@ protected:
 
 inline SignalBind::~SignalBind() {
     signal.unbind(*this);
+}
+
+inline Signal &get_static_ref() {
+    static Signal instance;
+    return instance;
 }
 
 } // namespace thread

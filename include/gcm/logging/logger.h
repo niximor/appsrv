@@ -31,7 +31,12 @@
 namespace gcm {
 namespace logging {
 
+class Logger;
+Logger &get_root_logger();
+
 class Logger {
+friend Logger &get_root_logger();
+
 public:
     friend class Message;
 
@@ -68,7 +73,7 @@ public:
     }
 
     static Logger &get_root() {
-        return root;
+        return get_root_logger();
     }
 
     void add_handler(std::unique_ptr<Handler> new_handler) {
@@ -136,8 +141,6 @@ private:
     Logger(Logger &parent, const std::string &name): parent(parent), name(name)
 	{}
 
-    static Logger root;
-
 protected:
 	void write(Message &msg) {
 		for (auto handler: get_handlers()) {
@@ -151,6 +154,11 @@ protected:
     std::vector<std::shared_ptr<Handler>> handlers;
 	std::string name;
 };
+
+inline Logger &get_root_logger() {
+    static Logger root;
+    return root;
+}
 
 } // namespace logging
 } // namespace gcm

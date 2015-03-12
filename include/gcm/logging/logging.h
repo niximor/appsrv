@@ -28,6 +28,9 @@
 #include "message.h"
 #include "field.h"
 
+#include "detail/message_impl.h"
+#include "detail/field_impl.h"
+
 namespace gcm {
 namespace logging {
 

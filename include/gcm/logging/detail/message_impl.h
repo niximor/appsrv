@@ -17,27 +17,20 @@
  * with GCM::AppSrv. If not, see http://www.gnu.org/licenses/.
  *
  * @author Michal Kuchta <niximor@gmail.com>
- * @date 2014-10-28
+ * @date 2015-03-12
  *
  */
 
-#include <gcm/logging/field.h>
-#include <gcm/logging/handler.h>
-#include <gcm/logging/logger.h>
+#pragma once
 
-using namespace gcm::logging;
+namespace gcm {
+namespace logging {
 
-field::Field::~Field() {}
-Handler::~Handler() {}
-
-Logger Logger::root;
-
-Message::~Message() {
-	if (!moved) {
-		logger.write(*this);
-	}
+inline Message::~Message() {
+    if (!moved) {
+        logger.write(*this);
+    }
 }
 
-void field::Name::format(Msg &msg, std::ostream &stream) {
-	stream << msg.get_logger().get_name();
-}
+} // namespace logging
+} // namespace gcm
