@@ -8,7 +8,7 @@ CXXFLAGS += -fdiagnostics-color=always
 CXXFLAGS += $(CXXEF)
 
 LDFLAGS := -pthread
-SOURCES := $(shell find . -iname '*.cc')
+SOURCES := $(shell find . -iname '*.cc' -not -path './target/*')
 APP_OBJS := $(SOURCES:.cc=.o)
 
 HEADER_PATH := ../include/gcm/
