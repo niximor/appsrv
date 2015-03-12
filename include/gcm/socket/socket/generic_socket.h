@@ -276,8 +276,9 @@ public:
     }
 
 protected:
-    WritableSocket(int fd, Address &&addr): Socket<Address>(fd, addr), eof_flag(false), binary_flag(true) {}
+    WritableSocket(int fd, Address &&addr): Socket<Address>(fd, std::forward<Address>(addr)), eof_flag(false), binary_flag(true) {}
     WritableSocket(int fd, const Address &addr): Socket<Address>(fd, addr), eof_flag(false), binary_flag(true) {}
+    WritableSocket(int fd): Socket<Address>(fd), eof_flag(false), binary_flag(true) {}
 
 private:
     bool eof_flag;
