@@ -37,6 +37,7 @@
 #include <gcm/thread/shm.h>
 #include <gcm/thread/signal.h>
 #include <gcm/io/exception.h>
+#include <gcm/socket/socket.h>
 
 #include "state.h"
 
@@ -57,22 +58,30 @@ public:
 
 class PoolState {
 public:
+    PoolState(): num_free(0), num_starting(0), num_busy(0), tasks_in_queue(0)
+    {}
+
     int num_free;
     int num_starting;
     int num_busy;
+    int tasks_in_queue;
 };
 
 template<typename T>
 class ProcessPool;
 
+constexpr int NeedWorkTag = 1;
+
 template<typename T>
 class ProcessWorker {
 public:
-    ProcessWorker(ProcessPool<T> &pool): pool(pool) {
+    ProcessWorker(ProcessPool<T> &pool): pool(pool), pid(0), quit(false) {
         auto &log = gcm::logging::getLogger("GCM.ProcessPool");
 #ifdef PROCESSPOOL_DEBUG
         DEBUG(log) << "Worker constructor.";
 #endif
+
+        auto sockets = gcm::socket::Unix::make_pair();
 
         pid = fork();
 
@@ -82,18 +91,28 @@ public:
 #ifdef PROCESSPOOL_DEBUG
             DEBUG(log) << "Worker start in progress...";
 #endif
+            socket = std::move(sockets.first);
 
             // Kill pool.
             pool.child_stop();
 
+            // Create new process group.
+            // This is required to kill properly server from the console, which sends SIGINT to all
+            // processes in group, which would instantly kill all worker childs, which is undesired behavior.
+            // Lifetime of childs should be controlled only by ProcessPool.
             setpgid(0, 0);
+
+            // Handle SIGINT and quit correctly.
             SignalBind bind{Signal::at(SIGINT, std::bind(&ProcessWorker::stop, this))};
+
+            // Run worker code itself.
             (*this)();
 
             exit(0);
         } else if (pid > 0) {
-            // Back in parent, do nothing here and return back
-            // to pool.
+            // Back in parent. Store socket to child and then continue.
+            socket = std::move(sockets.second);
+
 #ifdef PROCESSPOOL_DEBUG
             DEBUG(log) << "Worker started.";
 #endif
@@ -128,8 +147,7 @@ public:
             // Wait for work
             std::unique_lock<SharedMutex> lock(pool.worker_mutex);
             while (!quit) {
-                // TODO: Wait for work
-                //if (!pool.tasks.empty()) break;
+                if (pool.state->tasks_in_queue > 0) break;
                 pool.worker_cond.wait(lock);
             }
 
@@ -141,8 +159,9 @@ public:
             pool.state->num_free--;
             pool.state->num_busy++;
 
-            // TODO: Receive work
-            T task;
+            // Send that we want work.
+            socket << NeedWorkTag;
+            T task(socket);
 
             try {
                 task();
@@ -178,11 +197,16 @@ public:
         }
     }
 
+    gcm::socket::UnixSocket &get_socket() {
+        return socket;
+    }
+
 protected:
     ProcessPool<T> &pool;
     SharedMemory<ProcessState> state;
     pid_t pid;
     bool quit;
+    gcm::socket::UnixSocket socket;
 };
 
 template<typename T>
@@ -196,6 +220,7 @@ public:
         quit(false),
         child_quit(false),
         keeper_thread(&ProcessPool::keeper_func, this),
+        work_distributor_thread(&ProcessPool::work_distributor, this),
         sigchld_bind(Signal::at(SIGCHLD, std::bind(&ProcessPool::sigchld, this)))
     {}
 
@@ -205,18 +230,21 @@ public:
     void stop() {
         quit = true;
         keeper_cond.notify_all();
+        work_distributor_cond.notify_all();
     }
 
     void add_work(T &&w) {
         std::unique_lock<SharedMutex> lock(worker_mutex);
         tasks.emplace_back(std::forward<T>(w));
+        state->tasks_in_queue++;
 
-        // TODO: Push work to one of processes.
+        work_distributor_cond.notify_one();
     }
 
     ~ProcessPool() {
         stop();
         keeper_thread.join();
+        work_distributor_thread.join();
     }
 
 protected:
@@ -237,13 +265,38 @@ protected:
     bool quit;
     bool child_quit;
     std::thread keeper_thread;
+    std::thread work_distributor_thread;
 
     std::condition_variable keeper_cond;
     std::mutex keeper_mutex;
 
+    std::condition_variable work_distributor_cond;
+
     SignalBind sigchld_bind;
 
 protected:
+    void work_distributor() {
+        while (!quit) {
+            std::unique_lock<std::mutex> lock(keeper_mutex);
+            work_distributor_cond.wait(lock, [&](){
+                return !tasks.empty();
+            });
+
+            if (quit) break;
+
+            // Here we have at least one task in queue. Need to find any thread that will accept it.
+            gcm::socket::Select select;
+
+            for (auto &worker: workers) {
+                select.add(worker->get_socket(), [&](){
+                    T &t = tasks.front();
+                    t.send(worker->get_socket());
+                    tasks.pop_front();
+                }, nullptr, nullptr);
+            }
+        }
+    }
+
     void keeper_func() {
         auto &log = gcm::logging::getLogger("GCM.ProcessPool");
 
