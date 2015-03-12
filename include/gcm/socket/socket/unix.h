@@ -26,14 +26,20 @@
 #include <string>
 
 #include <string.h>
+#include <errno.h>
 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <linux/un.h>
 
 #include "types.h"
+#include "generic_socket.h"
+#include "exception.h"
 
 namespace gcm {
 namespace socket {
+
+class UnixSocket;
 
 /**
  * Unix socket
@@ -68,7 +74,101 @@ public:
     const std::string get_path() const {
         return addr.sun_path;
     }
+
+    static std::pair<UnixSocket, UnixSocket> make_pair();
 };
+
+class UnixSocket: public WritableSocket<Unix> {
+friend class Unix;
+public:
+    UnixSocket(UnixSocket &&other) = default;
+    UnixSocket(): WritableSocket<Unix>(0)
+    {}
+
+    // Send other socket over this socket.
+    // This socket must be of type Unix.
+    template<typename OtherSocketType>
+    void send_socket(OtherSocketType &socket) {
+        msghdr hdr;
+        iovec data;
+
+        char dummy = '*';
+        data.iov_base = &dummy;
+        data.iov_len = sizeof(dummy);
+
+        memset(&hdr, 0, sizeof(hdr));
+        hdr.msg_name = NULL;
+        hdr.msg_namelen = 0;
+        hdr.msg_iov = &data;
+        hdr.msg_iovlen = 1;
+        hdr.msg_flags = 0;
+
+        char cmsgbuf[CMSG_SPACE(sizeof(socket.fd))];
+        hdr.msg_control = cmsgbuf;
+        hdr.msg_controllen = CMSG_LEN(sizeof(int));
+
+        cmsghdr *cmsg = CMSG_FIRSTHDR(&hdr);
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+
+        *(int *)CMSG_DATA(cmsg) = socket.fd;
+
+        int res = sendmsg(fd, &hdr, 0);
+        if (res < 0) {
+            throw SocketException(errno);
+        }
+
+        return *this;
+    }
+
+    // Receive other socket from 
+    template<typename OtherSocketType>
+    OtherSocketType receive_socket() {
+        char buf[1];
+        iovec iov;
+        iov.iov_base = buf;
+        iov.iov_len = 1;
+
+        msghdr msg;
+        memset(&msg, 0, sizeof(msg));
+
+        msg.msg_name = NULL;
+        msg.msg_namelen = 0;
+        msg.msg_iov = &iov;
+        msg.msg_iovlen = 1;
+
+        char cms[CMSG_SPACE(sizeof(int))];
+        msg.msg_control = (caddr_t)cms;
+
+        int rec = recvmsg(fd, &msg, 0);
+        if (rec < 0) {
+            throw SocketException(errno);
+        } else if (rec == 0) {
+            throw SocketException("Unexpected end of stream.");
+        }
+
+        cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+
+        int other_fd;
+        memmove(other_fd, CMSG_DATA(cmsg), sizeof(int));
+
+        return OtherSocketType(other_fd);
+    }
+
+protected:
+    UnixSocket(int fd): WritableSocket<Unix>(fd)
+    {}
+};
+
+std::pair<UnixSocket, UnixSocket> Unix::make_pair() {
+    int fds[2];
+    if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) < 0) {
+        throw SocketException(errno);
+    }
+
+    return std::make_pair(UnixSocket(fds[0]), UnixSocket(fds[1]));
+}
 
 } // namespace socket
 } // namespace gcm
