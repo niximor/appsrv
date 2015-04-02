@@ -96,43 +96,62 @@ public:
 		return name;
 	}
 
+    Logger &get_child(const std::string &name) {
+        Logger *parent{this};
+
+        const std::string &root_name{parent->get_name()};
+        std::stringstream part_name{};
+        bool first{root_name.empty()};
+
+        if (!first) {
+            part_name << root_name;
+        }
+
+        if (name.empty()) return *parent;
+
+        std::string::size_type pos = std::string::npos;
+        do {
+            std::string::size_type oldpos = pos;
+            if (oldpos == std::string::npos) {
+                oldpos = 0;
+            } else {
+                // Skip the dot from previous part.
+                ++oldpos;
+            }
+
+            pos = name.find('.', oldpos);
+
+            std::string module{name.substr(
+                    oldpos, (pos != std::string::npos)?(pos - oldpos):name.size() - oldpos)};
+
+            if (!first) {
+                part_name << ".";
+            } else {
+                first = false;
+            }
+            part_name << module;
+
+            auto it = parent->childs.find(module);
+            if (it == parent->childs.end()) {
+                Logger new_logger(*parent, part_name.str());
+                auto inserted = parent->childs.emplace(std::make_pair(module, std::move(new_logger)));
+                parent = &(inserted.first->second);
+            } else {
+                parent = &(it->second);
+            }
+        } while (pos != std::string::npos);
+
+        return *parent;
+    }
+
 	static Logger &get(const std::string &name) {
-		Logger *parent{&(Logger::get_root())};
-		std::stringstream part_name;
-		bool first{true};
-
-		if (name.empty()) return *parent;
-
-		std::string::size_type pos = std::string::npos;
-		do {
-			std::string::size_type oldpos = pos;
-			if (oldpos == std::string::npos) {
-				oldpos = 0;
-			}
-
-			pos = name.find(".", pos);
-
-			std::string module{name.substr(
-					oldpos, (pos != std::string::npos)?(pos - oldpos):pos)};
-
-			if (!first) {
-				part_name << ".";
-				first = false;
-			}
-			part_name << module;
-
-			auto it = parent->childs.find(module);
-			if (it == parent->childs.end()) {
-				Logger new_logger(*parent, part_name.str());
-				auto inserted = parent->childs.emplace(std::make_pair(module, std::move(new_logger)));
-				parent = &(inserted.first->second);
-			} else {
-				parent = &(it->second);
-			}
-		} while (pos != std::string::npos);
-
-		return *parent;
+		return get_root().get_child(name);		
 	}
+
+    template<typename Stream>
+    void dump(Stream &s) {
+        dump(s, 0);
+    }
 
 private:
     Logger(): parent(*this), name("")
@@ -142,6 +161,25 @@ private:
 	{}
 
 protected:
+    template<typename Stream>
+    void dump(Stream &s, int level) {
+        std::string indent(level * 4, ' ');
+        if (name.empty()) {
+            s << indent << "-root-logger-\n";
+        } else {
+            s << indent << name << "\n";
+        }
+        s << indent << " - handlers: ";
+        for (auto &h: handlers) {
+            s << (void *)(&h);
+        }
+        s << "\n";
+        s << indent << " - childs: \n";
+        for (auto &ch: childs) {
+            ch.second.dump(s, level + 1);
+        }
+    }
+
 	void write(Message &msg) {
 		for (auto handler: get_handlers()) {
             handler->write(msg);
