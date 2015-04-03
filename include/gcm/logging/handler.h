@@ -125,7 +125,7 @@ public:
         }
     }
 
-    virtual void write(Message &msg) {
+    virtual void write(Message &msg) override {
         if (out <= 0) return;
 
         if (is_enabled(msg.get_severenity())) {

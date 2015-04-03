@@ -133,9 +133,9 @@ public:
     void apply(Logger &logger) {
         auto formatter = Formatter(
             field::Date(), " ",
+            "[", field::Pid(), "] ",
             appname, ".",
-            field::Name(),
-            "[", field::Pid(), "] ", 
+            field::Name(), " ",
             field::Severenity(), ": ",
             field::Message(),
             " {", field::File(), ":", field::Line(), "}"
