@@ -57,6 +57,34 @@ public:
         }
     }
 
+    std::string get_contents() {
+        std::string str;
+
+        // Backup
+        long pos = ftell(f);
+
+        fseek(f, 0, SEEK_END);
+        long size = ftell(f);
+        
+        str.reserve(size);
+
+        // Seek to the start
+        fseek(f, 0, SEEK_SET);
+
+        static const std::size_t buffer_size = 65535;
+        char buffer[buffer_size];
+
+        while (!feof(f)) {
+            std::size_t readed = fread(buffer, 1, buffer_size, f);
+            str.append(buffer, readed);
+        }
+
+        // Restore
+        fseek(f, pos, SEEK_SET);
+
+        return str;
+    }
+
 protected:
     FILE *f;
 };

@@ -63,6 +63,22 @@ public:
     virtual void write(Message &msg) = 0;
     virtual ~Handler() = default;
 
+    void disable_all() {
+        disable_type(MessageType::Critical);
+        disable_type(MessageType::Error);
+        disable_type(MessageType::Warning);
+        disable_type(MessageType::Info);
+        disable_type(MessageType::Debug);
+    }
+
+    void enable_all() {
+        enable_type(MessageType::Critical);
+        enable_type(MessageType::Error);
+        enable_type(MessageType::Warning);
+        enable_type(MessageType::Info);
+        enable_type(MessageType::Debug);
+    }
+
     void enable_type(MessageType type) {
         set_type(type, true);
     }

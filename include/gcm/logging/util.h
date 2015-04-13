@@ -170,9 +170,12 @@ void setup_logging(const std::string &appname, std::initializer_list<MessageType
             field::File(), ":", field::Line(), "}"
     )));
 
-    for (auto &handler: log.get_handlers(true)) {
-        for (auto level: levels) {
-            handler->set_type(level, true);
+    if (levels.size() > 0) {
+        for (auto &handler: log.get_handlers(true)) {
+            handler->disable_all();
+            for (auto level: levels) {
+                handler->set_type(level, true);
+            }
         }
     }
 }
